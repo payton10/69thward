@@ -136,6 +136,10 @@ async function boot(){
   SB.auth.onAuthStateChange((_e,s2)=>{ session=s2; refreshMe().then(render); });
   await refreshMe();
   render();
+  if(new URLSearchParams(location.search).has('signin') && !session){
+    history.replaceState(null,'',location.pathname+location.hash);
+    openLogin('in');
+  }
 }
 async function refreshMe(){
   me=null; members=[]; pendingVotes=[];
