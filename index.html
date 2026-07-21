@@ -81,6 +81,12 @@
   .hero .big{font-size:26px;font-weight:800}
   .hero .sub{color:var(--ink2);font-size:13.5px;margin-top:4px}
   .auth-box{max-width:380px;margin:30px auto}
+  .signin-cta{text-align:center;padding:26px}
+  .avatar{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#140f02;font-weight:800;align-items:center;justify-content:center;font-size:14px}
+  .pchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:5px 12px 5px 6px;cursor:pointer;color:var(--ink);font-size:13px;font-weight:700}
+  .pmenu{position:absolute;right:0;top:44px;background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:14px;width:260px;z-index:60;text-align:left;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+  .who-wrap{position:relative}
+  .modal-card{background:var(--surface);border:1px solid var(--ring);border-radius:16px;padding:20px;max-width:380px;margin:8vh auto 0}
   .rules-toc{font-size:13px;column-count:2;margin-bottom:6px}
   .rules-toc a{display:block;padding:2px 0;color:var(--ink2)}
   .amend{font-size:11px;color:var(--goldbright);margin-top:6px}
@@ -92,13 +98,14 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">The 69th Ward<span class="sub">Est. 2022 · Fantasy Football</span></div>
-    <div class="who" id="who"></div>
+    <div class="who-wrap" id="who"></div>
   </header>
   <nav class="tabs" id="tabs"></nav>
   <main id="main"><div class="loading">Loading…</div></main>
   <footer>The 69th Ward · Buy-in $20 + $2/loss · Last place eats the herring 🐟</footer>
 </div>
 <div id="overlay"></div>
+<div id="modal"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
@@ -135,7 +142,9 @@ async function refreshMe(){
   if(!session) return;
   const {data:mem} = await SB.from('ward_members').select('*');
   members = mem||[];
-  me = members.find(m=>m.email===(session.user.email||'').toLowerCase())||null;
+  const uem = (session.user.email||'').toLowerCase();
+  const sm = uem.match(/^w(\d+)@69thward\.app$/);
+  me = members.find(m => sm ? m.phone===sm[1] : (m.email===uem || (m.contact_email||'').toLowerCase()===uem)) || null;
   if(me){
     const {data:open} = await SB.from('ward_measures').select('id,title').eq('status','open');
     const {data:mine} = await SB.from('ward_ballots').select('measure_id');
@@ -143,10 +152,33 @@ async function refreshMe(){
     pendingVotes = (open||[]).filter(m=>!voted.has(m.id));
   }
 }
+let menuOpen=false;
+function fmtPhone(d){ d=(d||'').replace(/^1/,''); return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:d; }
 function drawWho(){
-  $('who').innerHTML = me
-    ? `<b>${esc(me.name)}</b>${me.is_commissioner?' <span class="pill gold">Commish</span>':''}<br><button onclick="signOut()">sign out</button>`
-    : (session? '<button onclick="signOut()">sign out</button>' : '<span style="font-size:12px">not signed in</span>');
+  if(me){
+    $('who').innerHTML = `<button class="pchip" onclick="toggleMenu()"><span class="avatar">${esc(me.name[0])}</span>${esc(me.name)}${me.is_commissioner?' <span class="pill gold" style="margin-left:2px">C</span>':''}</button>
+      ${menuOpen?`<div class="pmenu">
+        <b>${esc(me.name)}</b>${me.is_commissioner?' <span class="pill gold">Commissioner</span>':''}
+        <div class="meta">📱 ${fmtPhone(me.phone)}</div>
+        <label>Email on file</label>
+        <input id="pf-em" type="email" value="${esc(me.contact_email||'')}" placeholder="you@wherever.com">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn sm" onclick="saveEmail()">Save</button>
+          <button class="btn sm ghost" onclick="signOut()">Sign out</button>
+        </div><div id="pf-msg"></div>
+      </div>`:''}`;
+  } else if(session){
+    $('who').innerHTML = `<button class="btn sm ghost" onclick="signOut()">Sign out</button>`;
+  } else {
+    $('who').innerHTML = `<button class="btn sm primary" onclick="openLogin('in')">Sign in</button>`;
+  }
+}
+function toggleMenu(){ menuOpen=!menuOpen; drawWho(); }
+async function saveEmail(){
+  const v=$('pf-em').value.trim().toLowerCase();
+  const {error} = await SB.from('ward_members').update({contact_email:v||null}).eq('email',me.email);
+  $('pf-msg').innerHTML = error?`<div class="err">${esc(error.message)}</div>`:'<div class="ok">Saved.</div>';
+  if(!error) me.contact_email=v;
 }
 async function signOut(){ await SB.auth.signOut(); location.reload(); }
 
@@ -163,33 +195,59 @@ async function render(){
   }catch(e){ m.innerHTML=`<div class="err">Something broke: ${esc(e.message)}</div>`; }
 }
 
-// ---------- auth UI ----------
+// ---------- auth UI (phone-first; synthetic email under the hood) ----------
 function authBox(){
-  return `<div class="auth-box card"><h3>Members only</h3>
-  <div class="meta" style="margin-top:4px">Sign in with the email the commissioner has on file. First time? Create your account with that same email — it's the key to the door.</div>
-  <form id="af" autocomplete="on" onsubmit="return doAuth(event,'in')">
-    <label>Email</label><input id="a-em" type="email" name="email" autocomplete="username" required>
-    <label>Password</label><input id="a-pw" type="password" name="password" autocomplete="current-password" required minlength="6">
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn primary" type="submit">Sign in</button>
-      <button class="btn" type="button" onclick="doAuth(event,'up')">Create account</button>
-    </div>
-    <div id="a-msg"></div>
-  </form></div>`;
+  return `<div class="card signin-cta"><h3>Members only</h3>
+    <div class="meta" style="margin:6px 0 14px">Sign in with your phone number — the one the league chat knows you by.</div>
+    <button class="btn primary" onclick="openLogin('in')">Sign in</button>
+    <button class="btn" onclick="openLogin('up')" style="margin-left:8px">First time? Sign up</button></div>`;
 }
+const synth = d => `w${d}@69thward.app`;
+function normPhone(v){ let d=(v||'').replace(/\D/g,''); if(d.length===10) d='1'+d; return d; }
+function openLogin(mode){
+  $('modal').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner">
+    <div class="modal-card">
+      <h3>${mode==='up'?'Join the Ward':'Sign in'}</h3>
+      <div class="meta" style="margin-top:4px">${mode==='up'
+        ? 'Use your own phone number — the roster knows who belongs here.'
+        : 'Phone number + your password.'}</div>
+      <form autocomplete="on" onsubmit="return doAuth(event,'${mode}')">
+        <label>Phone number</label>
+        <input id="a-ph" type="tel" name="username" autocomplete="username tel" placeholder="(208) 555-0123" required>
+        ${mode==='up'?`<label>Email (for league contact)</label>
+        <input id="a-cem" type="email" autocomplete="email" placeholder="you@wherever.com" required>`:''}
+        <label>Password</label>
+        <input id="a-pw" type="password" name="password" autocomplete="${mode==='up'?'new-password':'current-password'}" required minlength="8">
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn primary" type="submit">${mode==='up'?'Create account':'Sign in'}</button>
+          <button class="btn ghost" type="button" onclick="openLogin('${mode==='up'?'in':'up'}')">${mode==='up'?'Have an account? Sign in':'First time? Sign up'}</button>
+        </div>
+        <div id="a-msg"></div>
+      </form>
+    </div></div></div>`;
+  setTimeout(()=>$('a-ph').focus(),50);
+}
+function closeLogin(){ $('modal').innerHTML=''; }
 async function doAuth(ev,mode){
   ev.preventDefault();
-  const em=$('a-em').value.trim().toLowerCase(), pw=$('a-pw').value;
-  const msg=$('a-msg'); msg.innerHTML='<div class="meta">Working…</div>';
+  const d=normPhone($('a-ph').value), pw=$('a-pw').value;
+  const msg=$('a-msg');
+  if(d.length!==11){ msg.innerHTML='<div class="err">That doesn’t look like a full phone number.</div>'; return false; }
+  msg.innerHTML='<div class="meta">Working…</div>';
   let r;
   if(mode==='up'){
-    r = await SB.auth.signUp({email:em,password:pw,options:{data:{app:'ward'}}});
-    if(!r.error && !r.data.session) r = await SB.auth.signInWithPassword({email:em,password:pw});
+    const cem=$('a-cem').value.trim().toLowerCase();
+    r = await SB.auth.signUp({email:synth(d),password:pw,options:{data:{app:'ward',contact_email:cem,phone_digits:d}}});
+    if(!r.error && !r.data.session) r = await SB.auth.signInWithPassword({email:synth(d),password:pw});
   } else {
-    r = await SB.auth.signInWithPassword({email:em,password:pw});
+    r = await SB.auth.signInWithPassword({email:synth(d),password:pw});
   }
-  if(r.error){ msg.innerHTML=`<div class="err">${esc(r.error.message)}</div>`; return false; }
-  msg.innerHTML='<div class="ok">You’re in.</div>';
+  if(r.error){
+    let m = r.error.message;
+    if(/Invalid login credentials/i.test(m)) m = 'No account with that phone + password. First time here? Hit Sign up.';
+    msg.innerHTML=`<div class="err">${esc(m)}</div>`; return false;
+  }
+  closeLogin();
   return false;
 }
 
