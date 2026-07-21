@@ -160,12 +160,9 @@ function drawWho(){
       ${menuOpen?`<div class="pmenu">
         <b>${esc(me.name)}</b>${me.is_commissioner?' <span class="pill gold">Commissioner</span>':''}
         <div class="meta">📱 ${fmtPhone(me.phone)}</div>
-        <label>Email on file</label>
-        <input id="pf-em" type="email" value="${esc(me.contact_email||'')}" placeholder="you@wherever.com">
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button class="btn sm" onclick="saveEmail()">Save</button>
-          <button class="btn sm ghost" onclick="signOut()">Sign out</button>
-        </div><div id="pf-msg"></div>
+        <div class="meta" style="margin-top:6px">✉️ ${esc(me.contact_email||'no email on file')}</div>
+        <div class="meta" style="margin-top:4px;font-size:10.5px">Password resets go to this email. Need it changed? Tell the commissioner.</div>
+        <div style="margin-top:10px"><button class="btn sm ghost" onclick="signOut()">Sign out</button></div>
       </div>`:''}`;
   } else if(session){
     $('who').innerHTML = `<button class="btn sm ghost" onclick="signOut()">Sign out</button>`;
@@ -202,8 +199,8 @@ function authBox(){
     <button class="btn primary" onclick="openLogin('in')">Sign in</button>
     <button class="btn" onclick="openLogin('up')" style="margin-left:8px">First time? Sign up</button></div>`;
 }
-const synth = d => `w${d}@69thward.app`;
 function normPhone(v){ let d=(v||'').replace(/\D/g,''); if(d.length===10) d='1'+d; return d; }
+const maskEm = e => e ? e.replace(/^(.).*(@.*)$/, '$1•••$2') : '';
 function openLogin(mode){
   $('modal').innerHTML = `<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner">
     <div class="modal-card">
@@ -214,7 +211,7 @@ function openLogin(mode){
       <form autocomplete="on" onsubmit="return doAuth(event,'${mode}')">
         <label>Phone number</label>
         <input id="a-ph" type="tel" name="username" autocomplete="username tel" placeholder="(208) 555-0123" required>
-        ${mode==='up'?`<label>Email (for league contact)</label>
+        ${mode==='up'?`<label>Email — league contact & password resets</label>
         <input id="a-cem" type="email" autocomplete="email" placeholder="you@wherever.com" required>`:''}
         <label>Password</label>
         <input id="a-pw" type="password" name="password" autocomplete="${mode==='up'?'new-password':'current-password'}" required minlength="8">
@@ -222,6 +219,7 @@ function openLogin(mode){
           <button class="btn primary" type="submit">${mode==='up'?'Create account':'Sign in'}</button>
           <button class="btn ghost" type="button" onclick="openLogin('${mode==='up'?'in':'up'}')">${mode==='up'?'Have an account? Sign in':'First time? Sign up'}</button>
         </div>
+        ${mode==='in'?'<div style="margin-top:10px"><button class="btn sm ghost" type="button" onclick="forgotPw()">Forgot password?</button></div>':''}
         <div id="a-msg"></div>
       </form>
     </div></div></div>`;
@@ -237,17 +235,48 @@ async function doAuth(ev,mode){
   let r;
   if(mode==='up'){
     const cem=$('a-cem').value.trim().toLowerCase();
-    r = await SB.auth.signUp({email:synth(d),password:pw,options:{data:{app:'ward',contact_email:cem,phone_digits:d}}});
-    if(!r.error && !r.data.session) r = await SB.auth.signInWithPassword({email:synth(d),password:pw});
+    r = await SB.auth.signUp({email:cem,password:pw,options:{data:{app:'ward',contact_email:cem,phone_digits:d}}});
+    if(!r.error && !r.data.session) r = await SB.auth.signInWithPassword({email:cem,password:pw});
   } else {
-    r = await SB.auth.signInWithPassword({email:synth(d),password:pw});
+    const {data:em} = await SB.rpc('ward_login_email',{d});
+    if(!em){ msg.innerHTML='<div class="err">No account for that number yet — hit Sign up. (Or ask the commissioner.)</div>'; return false; }
+    r = await SB.auth.signInWithPassword({email:em,password:pw});
   }
   if(r.error){
     let m = r.error.message;
-    if(/Invalid login credentials/i.test(m)) m = 'No account with that phone + password. First time here? Hit Sign up.';
+    if(/Invalid login credentials/i.test(m)) m = 'Wrong password for that number. Try again, or use Forgot password.';
+    if(/already registered/i.test(m)) m = 'That email already has an account — sign in instead.';
     msg.innerHTML=`<div class="err">${esc(m)}</div>`; return false;
   }
   closeLogin();
+  return false;
+}
+async function forgotPw(){
+  const d=normPhone($('a-ph').value), msg=$('a-msg');
+  if(d.length!==11){ msg.innerHTML='<div class="err">Enter your phone number first, then hit Forgot password.</div>'; return; }
+  const {data:em} = await SB.rpc('ward_login_email',{d});
+  if(!em){ msg.innerHTML='<div class="err">No account for that number yet — nothing to reset. Hit Sign up.</div>'; return; }
+  const {error} = await SB.auth.resetPasswordForEmail(em,{redirectTo:'https://payton10.github.io/69thward/'});
+  msg.innerHTML = error ? `<div class="err">${esc(error.message)}</div>`
+    : `<div class="ok">Reset link sent to ${esc(maskEm(em))} — check that inbox, tap the link, and you’ll set a new password right here.</div>`;
+}
+SB.auth.onAuthStateChange((ev2)=>{ if(ev2==='PASSWORD_RECOVERY') openRecovery(); });
+function openRecovery(){
+  $('modal').innerHTML = `<div class="overlay"><div class="inner"><div class="modal-card">
+    <h3>Set a new password</h3>
+    <div class="meta" style="margin-top:4px">You’re verified — pick a new one and you’re back in.</div>
+    <form autocomplete="on" onsubmit="return saveNewPw(event)">
+      <label>New password</label>
+      <input id="r-pw" type="password" autocomplete="new-password" required minlength="8">
+      <div style="margin-top:14px"><button class="btn primary" type="submit">Save password</button></div>
+      <div id="r-msg"></div>
+    </form></div></div></div>`;
+}
+async function saveNewPw(ev){
+  ev.preventDefault();
+  const {error} = await SB.auth.updateUser({password:$('r-pw').value});
+  $('r-msg').innerHTML = error ? `<div class="err">${esc(error.message)}</div>` : '<div class="ok">Done — you’re signed in.</div>';
+  if(!error) setTimeout(()=>{ closeLogin(); location.hash='home'; location.reload(); }, 900);
   return false;
 }
 
