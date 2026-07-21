@@ -212,7 +212,9 @@ def build(as_of=None, reveal=False):
     }
     template = (HERE / "template.html").read_text()
     page = template.replace("/*__DATA__*/null", json.dumps(data, ensure_ascii=False))
-    (HERE / "index.html").write_text(page)
+    out = HERE / "derby" / "index.html"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(page)
     print(f"built index.html · state={state} · drops={len(sim['drops'])} · as_of={as_of_date}")
 
 def selftest():

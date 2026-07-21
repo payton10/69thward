@@ -5,8 +5,8 @@ set -e
 cd "$(dirname "$0")"
 export PATH=/opt/homebrew/bin:/usr/bin:/bin
 /opt/homebrew/bin/python3 engine.py >> drop.log 2>&1
-if ! git diff --quiet index.html 2>/dev/null; then
-  git add index.html
+if ! git diff --quiet derby/index.html 2>/dev/null; then
+  git add derby/index.html
   git commit -m "drop $(date +%F)" >> drop.log 2>&1
   git push origin main >> drop.log 2>&1
   echo "$(date '+%F %T') pushed" >> drop.log

@@ -3,356 +3,414 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>69th Ward Draft Derby</title>
+<title>The 69th Ward</title>
 <style>
-  :root{
-    color-scheme: dark;
+  :root{color-scheme:dark;
     --page:#0d0d0d; --surface:#1a1a19; --surface2:#222220;
-    --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
-    --grid:#2c2c2a; --baseline:#383835; --ring:rgba(255,255,255,0.10);
-    --accent:#3987e5; --gold:#c98500; --goldbright:#fab219; --warn:#ec835a;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{background:var(--page); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.45;}
-  .wrap{max-width:680px; margin:0 auto; padding:20px 16px 48px;}
-  header.hero{text-align:center; padding:26px 0 18px;}
-  .kicker{font-size:12px; letter-spacing:.24em; color:var(--gold); text-transform:uppercase; font-weight:700;}
-  h1{font-size:34px; font-weight:800; letter-spacing:-.01em; margin:6px 0 2px;}
-  .sub{color:var(--ink2); font-size:14px;}
-  .counts{display:flex; gap:10px; justify-content:center; margin:18px 0 6px; flex-wrap:wrap;}
-  .chip{background:var(--surface); border:1px solid var(--ring); border-radius:12px; padding:10px 16px; text-align:center; min-width:150px;}
-  .chip .big{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums;}
-  .chip .lbl{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-top:2px;}
-  .chip.gold .big{color:var(--goldbright);}
-  .phases{display:flex; gap:4px; margin:20px 0 6px;}
-  .ph{flex:1; text-align:center; font-size:11px; color:var(--muted); padding-top:7px;}
-  .ph::before{content:""; display:block; height:4px; border-radius:2px; background:var(--baseline); margin-bottom:6px;}
-  .ph.done::before{background:var(--accent);}
-  .ph.live::before{background:var(--goldbright);}
-  .ph.live{color:var(--goldbright); font-weight:700;}
-  .ph .dates{display:block; font-size:10px; color:var(--muted); font-weight:400;}
-  section{margin-top:28px;}
-  h2{font-size:13px; text-transform:uppercase; letter-spacing:.18em; color:var(--ink2); margin-bottom:12px; font-weight:700;}
-  h2 .note{float:right; font-size:11px; color:var(--muted); letter-spacing:0; text-transform:none; font-weight:400;}
-  .board,.feed,.card{background:var(--surface); border:1px solid var(--ring); border-radius:14px;}
-  .board{padding:16px 14px;}
-  .card{padding:16px; font-size:13.5px; color:var(--ink2);}
-  .row{display:grid; grid-template-columns:26px 1fr 58px; align-items:center; gap:10px; padding:7px 2px;}
-  .row+.row{border-top:1px solid var(--grid);}
-  .rank{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right;}
-  .tname{font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .bartrack{height:10px; margin-top:4px; position:relative;}
-  .bar{height:10px; border-radius:0 4px 4px 0; background:var(--accent); position:absolute; left:0; top:0;}
-  .row.leader .bar{background:var(--gold);}
-  .row.locked .bar{background:var(--baseline);}
-  .row.locked .tname{color:var(--muted); font-weight:500;}
-  .pts{font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; text-align:right;}
-  .pts .d{display:block; font-size:10.5px; font-weight:600; color:#0ca30c;}
-  .row.locked .pts{color:var(--muted);}
-  .stamp{display:inline-block; font-size:10px; font-weight:800; color:var(--ink2); background:var(--surface2); border:1px solid var(--ring); border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:1px;}
-  .stamp.hot{color:var(--warn); border-color:rgba(236,131,90,.45);}
-  .stamp.pick1{color:var(--goldbright); border-color:rgba(201,133,0,.5);}
-  .feed{padding:4px 16px;}
-  .ev{padding:12px 0; border-bottom:1px solid var(--grid); font-size:13.5px; color:var(--ink2);}
-  .ev:last-child{border-bottom:none;}
-  .ev b{color:var(--ink);}
-  .tag{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border-radius:6px; padding:2px 7px; margin-right:8px; vertical-align:1px;}
-  .tag.lock{background:#2a2a28; color:var(--ink2); border:1px solid var(--ring);}
-  .tag.event{background:rgba(201,133,0,.15); color:var(--goldbright); border:1px solid rgba(201,133,0,.4);}
-  .tag.roll{background:rgba(57,135,229,.14); color:#86b6ef; border:1px solid rgba(57,135,229,.35);}
-  .rules li{margin:0 0 8px 0;}
-  .rules ul{margin-left:18px;}
-  .verify{margin-top:26px;}
-  .verify summary{list-style:none; cursor:pointer; text-align:center; font-size:12.5px; color:var(--ink2); padding:9px 14px; background:var(--surface); border:1px solid var(--ring); border-radius:999px; display:table; margin:0 auto; font-weight:600;}
-  .verify summary::-webkit-details-marker{display:none;}
-  .verify[open] summary{color:var(--goldbright); border-color:rgba(201,133,0,.4);}
-  .vpanel{margin-top:12px; background:var(--surface); border:1px solid var(--ring); border-radius:14px; padding:16px; font-size:12.5px; color:var(--ink2);}
-  .vpanel h3{font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--ink); margin:14px 0 6px;}
-  .vpanel h3:first-child{margin-top:0;}
-  .vpanel code{font-size:10.5px; background:var(--surface2); border:1px solid var(--ring); padding:1px 6px; border-radius:6px; word-break:break-all;}
-  .vpanel ol{margin:6px 0 0 18px;}
-  .vpanel li{margin-bottom:6px;}
-  .vbtn{display:block; width:100%; margin-top:12px; padding:9px; border-radius:10px; border:1px solid var(--ring); background:var(--surface2); color:var(--muted); font-size:12.5px; font-weight:700; text-align:center; cursor:default;}
-  .vbtn.on{color:var(--goldbright); border-color:rgba(201,133,0,.4); cursor:pointer;}
-  .vresult{margin-top:10px; font-size:12.5px; display:none;}
-  nav.tabs{display:flex; gap:6px; justify-content:center; margin-top:34px; border-top:1px solid var(--grid); padding-top:16px;}
-  .tab{font-size:12.5px; color:var(--muted); padding:7px 14px; border-radius:999px; border:1px solid transparent; text-decoration:none;}
-  .tab.on{color:var(--ink); background:var(--surface); border-color:var(--ring); font-weight:700;}
-  footer{margin-top:14px; text-align:center; font-size:11px; color:var(--muted);}
-  .hidden{display:none;}
+    --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --ring:rgba(255,255,255,.10);
+    --accent:#3987e5; --accent2:#86b6ef; --gold:#c98500; --goldbright:#fab219;
+    --good:#0ca30c; --bad:#e66767; --warn:#ec835a;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+  .wrap{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+  a{color:var(--accent2);text-decoration:none}
+  header.top{display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px}
+  .brand{font-weight:800;font-size:18px;letter-spacing:-.01em}
+  .brand .sub{display:block;font-size:10px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;font-weight:700}
+  .who{font-size:12px;color:var(--muted);text-align:right}
+  .who b{color:var(--ink2)}
+  .who button{background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline}
+  nav.tabs{display:flex;gap:4px;margin:12px 0 20px;border-bottom:1px solid var(--grid);padding-bottom:10px;flex-wrap:wrap}
+  .tab{font-size:13px;color:var(--muted);padding:7px 13px;border-radius:999px;border:1px solid transparent;cursor:pointer;background:none}
+  .tab.on{color:var(--ink);background:var(--surface);border-color:var(--ring);font-weight:700}
+  .tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--goldbright);margin-left:5px;vertical-align:1px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.18em;color:var(--ink2);margin:24px 0 10px;font-weight:700}
+  .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px;margin-bottom:12px}
+  .card h3{font-size:15px;margin-bottom:4px}
+  .meta{font-size:11.5px;color:var(--muted)}
+  .body-md{font-size:13.5px;color:var(--ink2);margin-top:8px;white-space:pre-wrap}
+  .btn{display:inline-block;padding:8px 16px;border-radius:10px;border:1px solid var(--ring);background:var(--surface2);color:var(--ink);font-size:13px;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.gold{background:var(--gold);border-color:var(--gold);color:#140f02}
+  .btn.ghost{background:none;color:var(--ink2)}
+  .btn.sm{padding:4px 10px;font-size:12px;font-weight:600}
+  .btn:disabled{opacity:.45;cursor:default}
+  input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:14px;font-family:inherit;margin-top:8px}
+  textarea{min-height:80px;resize:vertical}
+  label{font-size:12px;color:var(--muted);display:block;margin-top:12px}
+  .err{color:var(--bad);font-size:12.5px;margin-top:8px}
+  .ok{color:var(--good);font-size:12.5px;margin-top:8px}
+  .pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;border:1px solid var(--ring);color:var(--ink2);background:var(--surface2);margin-left:6px;vertical-align:1px}
+  .pill.gold{color:var(--goldbright);border-color:rgba(201,133,0,.45);background:rgba(201,133,0,.12)}
+  .pill.green{color:var(--good);border-color:rgba(12,163,12,.4);background:rgba(12,163,12,.1)}
+  .pill.red{color:var(--bad);border-color:rgba(230,103,103,.4);background:rgba(230,103,103,.08)}
+  .pill.blue{color:var(--accent2);border-color:rgba(57,135,229,.4);background:rgba(57,135,229,.1)}
+  .likebtn{background:none;border:1px solid var(--ring);border-radius:999px;color:var(--ink2);font-size:12px;padding:3px 11px;cursor:pointer}
+  .likebtn.liked{color:var(--goldbright);border-color:rgba(201,133,0,.5);background:rgba(201,133,0,.1)}
+  .thread{margin-top:12px;border-top:1px solid var(--grid);padding-top:10px}
+  .cmt{padding:7px 0;font-size:13px;color:var(--ink2);border-bottom:1px solid var(--grid)}
+  .cmt:last-child{border:none}
+  .cmt b{color:var(--ink)}
+  .cmt .meta{margin-left:6px}
+  .sub-p{margin:8px 0 0 14px;padding:10px 12px;border-left:2px solid var(--baseline);background:var(--surface2);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink2)}
+  .voterow{display:flex;gap:8px;margin-top:12px}
+  .voterow .btn{flex:1;text-align:center}
+  .voterow .btn.sel-yes{background:var(--good);border-color:var(--good);color:#04210b}
+  .voterow .btn.sel-no{background:var(--bad);border-color:var(--bad);color:#2a0808}
+  .voterow .btn.sel-abstain{background:var(--baseline);border-color:var(--baseline)}
+  .chips{margin-top:10px;font-size:11.5px;color:var(--muted)}
+  .chips .c{display:inline-block;background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:1px 9px;margin:2px 2px 0 0;color:var(--ink2)}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:left;padding:4px 8px 6px;border-bottom:1px solid var(--grid)}
+  td{padding:6px 8px;border-bottom:1px solid var(--grid);color:var(--ink2)}
+  tr:last-child td{border:none}
+  td.num{font-variant-numeric:tabular-nums;text-align:right}
+  .tally{display:flex;gap:10px;margin-top:10px;font-size:13px}
+  .tally b{font-size:18px;display:block}
+  .tally>div{flex:1;text-align:center;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;padding:8px}
+  .overlay{position:fixed;inset:0;background:rgba(6,6,6,.93);z-index:50;overflow-y:auto;padding:30px 16px}
+  .overlay .inner{max-width:600px;margin:0 auto}
+  .overlay h1{font-size:22px;margin-bottom:4px}
+  .champ-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .champ{flex:1;min-width:130px;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;padding:10px;text-align:center}
+  .champ .yr{font-size:10.5px;color:var(--muted);letter-spacing:.12em}
+  .champ .nm{font-weight:800;margin-top:2px}
+  .champ .tm{font-size:11px;color:var(--muted)}
+  .hero{background:linear-gradient(180deg,var(--surface),var(--page));border:1px solid var(--ring);border-radius:16px;padding:22px;text-align:center;margin-bottom:14px}
+  .hero .big{font-size:26px;font-weight:800}
+  .hero .sub{color:var(--ink2);font-size:13.5px;margin-top:4px}
+  .auth-box{max-width:380px;margin:30px auto}
+  .rules-toc{font-size:13px;column-count:2;margin-bottom:6px}
+  .rules-toc a{display:block;padding:2px 0;color:var(--ink2)}
+  .amend{font-size:11px;color:var(--goldbright);margin-top:6px}
+  footer{margin-top:34px;text-align:center;font-size:11px;color:var(--muted);border-top:1px solid var(--grid);padding-top:14px}
+  .loading{color:var(--muted);font-size:13px;padding:20px;text-align:center}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="hero">
-    <div class="kicker">69th Ward · Est. 2022</div>
-    <h1>Draft Derby</h1>
-    <div class="sub" id="tagline"></div>
+  <header class="top">
+    <div class="brand">The 69th Ward<span class="sub">Est. 2022 · Fantasy Football</span></div>
+    <div class="who" id="who"></div>
   </header>
-
-  <div class="counts" id="chips"></div>
-  <div class="phases" id="phasebar"></div>
-
-  <section id="teaser" class="hidden">
-    <h2>How it works</h2>
-    <div class="card rules">
-      <ul>
-        <li><b>Every night at 6:00 PM</b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
-        <li><b>Lock Week:</b> each night, the lowest total gets locked into the worst open draft slot. Pick 10 goes first. Then 9. Then you.</li>
-        <li><b>The Finale:</b> the last two standing roll head-to-head for the #1 pick — two days before the draft.</li>
-        <li><b>Events</b> hit twice a week. The can of surströmming opens for someone. The beer mile giveth.</li>
-        <li>Most points = first pick. No re-rolls. No mercy. Provably rigged-proof (see below).</li>
-      </ul>
-    </div>
-  </section>
-
-  <section id="boardsec" class="hidden">
-    <h2>Leaderboard <span class="note" id="boardnote"></span></h2>
-    <div class="board" id="board"></div>
-  </section>
-
-  <section id="feedsec" class="hidden">
-    <h2 id="feedtitle">Last night's drop <span class="note" id="feednote"></span></h2>
-    <div class="feed" id="feed"></div>
-  </section>
-
-  <details class="verify">
-    <summary>🎲 Is this rigged? Prove it isn't →</summary>
-    <div class="vpanel">
-      <h3>The commitment</h3>
-      <div id="commitline"></div>
-      <h3>How each roll is made</h3>
-      <code>roll = HMAC-SHA256(seed, year·date·name·purpose) % 20 + 1</code> — a pure function.
-      Same seed, same date, same name → same number, every time, on anyone's computer. The commissioner
-      can't re-roll, cherry-pick, or "fix a glitch" without changing the seed — which would break the fingerprint above.
-      <h3>The reveal</h3>
-      <ol>
-        <li>After the finale, the master seed is published right here.</li>
-        <li>This page then recomputes <b>every roll of the season in your own browser</b> and checks them against every drop as it was posted.</li>
-        <li>Extra credit: hash the revealed seed yourself and match the day-one fingerprint.</li>
-      </ol>
-      <div class="vbtn" id="vbtn">🔒 Recompute every roll — unlocks when the seed is revealed</div>
-      <div class="vresult" id="vresult"></div>
-      <h3>Ties</h3>
-      Tied at a lock: best single night wins, then a seeded coin flip. Nothing is ever decided by a human.
-    </div>
-  </details>
-
-  <nav class="tabs">
-    <span class="tab on">Derby</span><span class="tab">League</span><span class="tab">History</span><span class="tab">Rules</span>
-  </nav>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="main"><div class="loading">Loading…</div></main>
   <footer>The 69th Ward · Buy-in $20 + $2/loss · Last place eats the herring 🐟</footer>
 </div>
+<div id="overlay"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jack", "Kirk", "Bryson"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-21", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-13", "lock_start": "2026-08-23", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "warmup"], ["2026-08-12", "warmup"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "surge"], ["2026-08-22", "surge"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-21T15:02:44.613806-06:00"};
-const CFG = DATA.cfg, MANAGERS = CFG.managers;
+const SB = supabase.createClient('https://wdfkzkkcyhzrbmipgiil.supabase.co','sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m');
 const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const fmtD = iso => new Date(iso + "T12:00:00").toLocaleDateString('en-US',{month:'short',day:'numeric'});
-const dropAt = iso => new Date(iso + "T18:00:00-06:00");  // 6 PM MDT
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtD = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^- (.*)$/gm,'&nbsp;•&nbsp;$1').replace(/§(\d+)/g,'§$1');
 
-// ---------- visible drops: hide tonight's drop until 6:00 PM sharp ----------
-const now = new Date();
-const visHistory = DATA.fullHistory.filter(x => dropAt(x.date) <= now);
-const visDrops = DATA.drops.filter(x => dropAt(x.date) <= now);
-const lastDrop = visDrops[visDrops.length - 1] || null;
-const visLocked = {}; visHistory.forEach(x => (x.locks||[]).forEach(l => visLocked[l.name] = l.pick));
-const visTotals = {}; MANAGERS.forEach(m => visTotals[m] = 0);
-visHistory.forEach(x => MANAGERS.forEach(m => { if (m in x.rolls) visTotals[m] += x.rolls[m]; }));
-const state = DATA.state === 'pre' ? 'pre' : (Object.keys(visLocked).length >= MANAGERS.length ? 'final' : (visHistory.length ? 'live' : 'pre'));
+let session=null, me=null, members=[], TAB='home', pendingVotes=[];
+const DRAFT = new Date('2026-09-02T18:30:00-06:00');
+const SEASON_START = new Date('2026-09-09T00:00:00-06:00');
+const name = e => (members.find(m=>m.email===e)||{}).name || (e||'').split('@')[0];
 
-// If a drop's time has passed but its data isn't in this build yet (Pages deploy lag), poll-reload.
-(function(){
-  const missing = DATA.phases.some(([dstr]) => dropAt(dstr) <= now && !DATA.fullHistory.some(x => x.date === dstr) && DATA.state !== 'pre');
-  if (missing && (now - dropAt(DATA.phases.filter(([dstr]) => dropAt(dstr) <= now).pop()[0])) < 15*60*1000)
-    setTimeout(() => location.reload(), 30000);
-})();
-
-// ---------- header ----------
-$('tagline').textContent = state === 'final'
-  ? 'The order is set. See you at the draft.'
-  : `Most points on ${fmtD(DATA.marks.finale)} drafts first. Nobody is safe until their slot locks.`;
-
-// ---------- chips ----------
-function nextDropTime(){
-  for (const [dstr] of DATA.phases){ const t = dropAt(dstr); if (t > now) return t; }
-  return null;
+// ---------- boot ----------
+const TABS = [['home','Home'],['derby','Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Rulebook'],['history','History']];
+function drawTabs(){
+  $('tabs').innerHTML = TABS.map(([k,l])=>k==='derby'
+    ? `<a class="tab" href="derby/">Derby 🎲</a>`
+    : `<button class="tab${TAB===k?' on':''}" onclick="go('${k}')">${l}${k==='vote'&&pendingVotes.length?'<span class=dot></span>':''}</button>`).join('');
 }
-function chip(big, lbl, gold, id){ return `<div class="chip${gold?' gold':''}"><div class="big" ${id?`id="${id}"`:''}>${big}</div><div class="lbl">${lbl}</div></div>`; }
-(function renderChips(){
-  const draftT = new Date(DATA.marks.draft + "T18:30:00-06:00");
-  const days = Math.max(0, Math.ceil((draftT - now) / 864e5));
-  let html = chip(days + ' days', 'Until the draft · ' + esc(CFG.draft_time_label), true);
-  const nd = nextDropTime();
-  if (state !== 'final' && nd) html += chip('—', (state==='pre'?'Until the first drop':'Until tonight’s drop') + ' · 6:00 PM', false, 'cd');
-  if (state === 'live'){
-    const alive = MANAGERS.filter(m => !(m in visLocked));
-    const todayPhase = (DATA.phases.find(([dstr]) => dropAt(dstr) > now) || [])[1];
-    if ((todayPhase === 'lock' || todayPhase === 'finale') && alive.length){
-      html += todayPhase === 'finale'
-        ? chip('Pick 1', 'Decided tonight', false)
-        : chip('Pick ' + Math.max(...[10,9,8,7,6,5,4,3].filter(p => !Object.values(visLocked).includes(p))), 'Locks tonight', false);
+function go(t){ TAB=t; location.hash=t; render(); }
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1); if(h&&h!==TAB&&TABS.some(([k])=>k===h)){TAB=h;render();}});
+
+async function boot(){
+  const h=location.hash.slice(1); if(TABS.some(([k])=>k===h)) TAB=h;
+  const {data:{session:s}} = await SB.auth.getSession(); session=s;
+  SB.auth.onAuthStateChange((_e,s2)=>{ session=s2; refreshMe().then(render); });
+  await refreshMe();
+  render();
+}
+async function refreshMe(){
+  me=null; members=[]; pendingVotes=[];
+  if(!session) return;
+  const {data:mem} = await SB.from('ward_members').select('*');
+  members = mem||[];
+  me = members.find(m=>m.email===(session.user.email||'').toLowerCase())||null;
+  if(me){
+    const {data:open} = await SB.from('ward_measures').select('id,title').eq('status','open');
+    const {data:mine} = await SB.from('ward_ballots').select('measure_id');
+    const voted = new Set((mine||[]).map(b=>b.measure_id));
+    pendingVotes = (open||[]).filter(m=>!voted.has(m.id));
+  }
+}
+function drawWho(){
+  $('who').innerHTML = me
+    ? `<b>${esc(me.name)}</b>${me.is_commissioner?' <span class="pill gold">Commish</span>':''}<br><button onclick="signOut()">sign out</button>`
+    : (session? '<button onclick="signOut()">sign out</button>' : '<span style="font-size:12px">not signed in</span>');
+}
+async function signOut(){ await SB.auth.signOut(); location.reload(); }
+
+// ---------- render root ----------
+async function render(){
+  drawTabs(); drawWho(); voteGate();
+  const m=$('main'); m.innerHTML='<div class="loading">Loading…</div>';
+  try{
+    if(TAB==='home') await rHome(m);
+    else if(TAB==='proposals') await rProposals(m);
+    else if(TAB==='vote') await rVote(m);
+    else if(TAB==='rules') await rRules(m);
+    else if(TAB==='history') await rHistory(m);
+  }catch(e){ m.innerHTML=`<div class="err">Something broke: ${esc(e.message)}</div>`; }
+}
+
+// ---------- auth UI ----------
+function authBox(){
+  return `<div class="auth-box card"><h3>Members only</h3>
+  <div class="meta" style="margin-top:4px">Sign in with the email the commissioner has on file. First time? Create your account with that same email — it's the key to the door.</div>
+  <form id="af" autocomplete="on" onsubmit="return doAuth(event,'in')">
+    <label>Email</label><input id="a-em" type="email" name="email" autocomplete="username" required>
+    <label>Password</label><input id="a-pw" type="password" name="password" autocomplete="current-password" required minlength="6">
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn primary" type="submit">Sign in</button>
+      <button class="btn" type="button" onclick="doAuth(event,'up')">Create account</button>
+    </div>
+    <div id="a-msg"></div>
+  </form></div>`;
+}
+async function doAuth(ev,mode){
+  ev.preventDefault();
+  const em=$('a-em').value.trim().toLowerCase(), pw=$('a-pw').value;
+  const msg=$('a-msg'); msg.innerHTML='<div class="meta">Working…</div>';
+  let r;
+  if(mode==='up'){
+    r = await SB.auth.signUp({email:em,password:pw,options:{data:{app:'ward'}}});
+    if(!r.error && !r.data.session) r = await SB.auth.signInWithPassword({email:em,password:pw});
+  } else {
+    r = await SB.auth.signInWithPassword({email:em,password:pw});
+  }
+  if(r.error){ msg.innerHTML=`<div class="err">${esc(r.error.message)}</div>`; return false; }
+  msg.innerHTML='<div class="ok">You’re in.</div>';
+  return false;
+}
+
+// ---------- forced-vote gate ----------
+function voteGate(){
+  const ov=$('overlay');
+  if(me && pendingVotes.length && TAB!=='vote'){
+    ov.innerHTML=`<div class="overlay"><div class="inner">
+      <h1>🗳️ The Ward requires your vote</h1>
+      <div class="meta" style="margin-bottom:14px">${pendingVotes.length} open measure${pendingVotes.length>1?'s':''} need${pendingVotes.length>1?'':'s'} your ballot before you can do anything else. Democracy isn’t optional here.</div>
+      ${pendingVotes.map(v=>`<div class="card"><h3>${esc(v.title)}</h3></div>`).join('')}
+      <button class="btn gold" onclick="go('vote')">Go vote →</button>
+    </div></div>`;
+  } else ov.innerHTML='';
+}
+
+// ---------- HOME ----------
+async function rHome(m){
+  const {data:seasons} = await SB.from('ward_seasons').select('*').order('year',{ascending:false});
+  const last = (seasons||[])[0];
+  const now = new Date();
+  const preDraft = now < DRAFT;
+  let hero;
+  if(preDraft){
+    const days = Math.ceil((DRAFT-now)/864e5);
+    hero = `<div class="hero"><div class="big">${days} days until the draft</div>
+      <div class="sub">Wed Sep 2 · 6:30 PM MT · order decided by the Derby</div>
+      <div style="margin-top:14px"><a class="btn gold" href="derby/">🎲 The Draft Derby is ${now<new Date('2026-07-27T18:00:00-06:00')?'coming Mon Jul 27':'LIVE'} →</a></div></div>`;
+  } else {
+    hero = `<div class="hero"><div class="big">2026 Season</div><div class="sub">Standings sync coming with Week 1 — see Yahoo for live scores.</div></div>`;
+  }
+  const champs = `<h2>Champions Row</h2><div class="champ-row">${(seasons||[]).slice().reverse().map(s=>
+    `<div class="champ"><div class="yr">${s.year}</div><div class="nm">🏆 ${esc(s.champion)}</div><div class="tm">${esc(s.champion_team)}</div></div>`).join('')}</div>`;
+  let dues='';
+  if(me){
+    const {data:pay} = await SB.from('ward_payments').select('*').eq('season',2026);
+    dues = `<h2>2026 Money</h2><div class="card">
+      <div class="meta">Buy-in $20 + $2 per loss (max $46), due after the regular season. 3rd gets buy-in back; the rest splits 70/30.</div>
+      ${(pay&&pay.length)?`<table><tr><th>Manager</th><th style="text-align:right">Due</th><th>Status</th></tr>${pay.map(p=>
+        `<tr><td>${esc(name(p.email))}</td><td class="num">$${p.due}</td><td>${p.paid?'<span class="pill green">Paid</span>':'<span class="pill red">Owes</span>'}</td></tr>`).join('')}</table>`
+      :'<div class="meta" style="margin-top:8px">Dues appear here once the regular season wraps.</div>'}</div>`;
+  }
+  const recap = last?`<h2>Last season</h2><div class="card"><h3>🏆 ${esc(last.champion)} — ${esc(last.champion_team)} (${last.year})</h3>
+    <div class="meta" style="margin-top:6px">${esc(last.notes||'')}</div></div>`:'';
+  m.innerHTML = hero + (me?'':authBox()) + champs + dues + recap;
+}
+
+// ---------- PROPOSALS ----------
+async function rProposals(m){
+  if(!me){ m.innerHTML=authBox(); return; }
+  const [{data:props},{data:likes},{data:subs},{data:slikes},{data:cmts}] = await Promise.all([
+    SB.from('ward_proposals').select('*').order('created_at',{ascending:false}),
+    SB.from('ward_proposal_likes').select('*'),
+    SB.from('ward_subproposals').select('*').order('created_at'),
+    SB.from('ward_subproposal_likes').select('*'),
+    SB.from('ward_comments').select('*').eq('target_type','proposal').order('created_at'),
+  ]);
+  const likeCt = id => (likes||[]).filter(l=>l.proposal_id===id);
+  const html = [`<h2>Proposals</h2>
+    <div class="card"><h3>Start a proposal</h3>
+    <div class="meta">Pitch a rule change. 2 likes makes it vote-eligible; sub-proposals offer alternate versions; only the commissioner sends things to an official vote (§12).</div>
+    <input id="np-t" placeholder="Title — e.g. Add a second FLEX" maxlength="140">
+    <textarea id="np-b" placeholder="Make your case…"></textarea>
+    <div style="margin-top:10px"><button class="btn primary" onclick="newProp()">Propose it</button></div><div id="np-msg"></div></div>`];
+  const open=(props||[]).filter(p=>p.status==='open'), done=(props||[]).filter(p=>p.status!=='open');
+  if(!open.length) html.push('<div class="meta" style="padding:8px 2px">No open proposals. The floor is yours.</div>');
+  for(const p of open){
+    const pl=likeCt(p.id), iLike=pl.some(l=>l.email===me.email);
+    const psubs=(subs||[]).filter(s=>s.proposal_id===p.id);
+    const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
+    html.push(`<div class="card"><h3>${esc(p.title)}${pl.length>=2?'<span class="pill blue">Vote-eligible</span>':''}</h3>
+      <div class="meta">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)}</div>
+      <div class="body-md">${esc(p.body)}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="likebtn${iLike?' liked':''}" onclick="likeProp(${p.id},${iLike})">👍 ${pl.length}</button>
+        ${me.is_commissioner?`<button class="btn sm gold" onclick="promote(${p.id})">Send to vote →</button>
+        <button class="btn sm ghost" onclick="archiveProp(${p.id})">archive</button>`:''}
+      </div>
+      ${pl.length?`<div class="chips">liked by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
+      ${psubs.map(s=>{const sl=(slikes||[]).filter(x=>x.subproposal_id===s.id), isl=sl.some(x=>x.email===me.email);
+        return `<div class="sub-p"><b>${esc(name(s.author_email))}’s version:</b> ${esc(s.body)}
+        <div style="margin-top:6px"><button class="likebtn${isl?' liked':''}" onclick="likeSub(${s.id},${isl})">👍 ${sl.length}</button></div></div>`;}).join('')}
+      <div class="thread">
+        ${pcmts.map(c=>`<div class="cmt"><b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`).join('')}
+        <input id="sub-${p.id}" placeholder="Add a sub-proposal (alternate version)…">
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn sm" onclick="addSub(${p.id})">+ Sub-proposal</button>
+          <button class="btn sm ghost" onclick="addCmt('proposal',${p.id})">💬 Comment</button>
+        </div>
+        <input id="cmt-proposal-${p.id}" placeholder="Comment…" style="display:none">
+      </div></div>`);
+  }
+  if(done.length) html.push(`<h2>Resolved</h2>`+done.map(p=>`<div class="card"><h3 style="color:var(--muted)">${esc(p.title)}</h3>
+    <div class="meta">${p.status==='promoted'?`→ went to vote (Measure #${p.measure_id||'?'})`:'archived'}</div></div>`).join(''));
+  m.innerHTML = html.join('');
+}
+async function newProp(){
+  const t=$('np-t').value.trim(), b=$('np-b').value.trim();
+  if(t.length<3){ $('np-msg').innerHTML='<div class="err">Give it a title.</div>'; return; }
+  const {error} = await SB.from('ward_proposals').insert({author_email:me.email,title:t,body:b});
+  if(error){ $('np-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
+  render();
+}
+async function likeProp(id,un){ un? await SB.from('ward_proposal_likes').delete().match({proposal_id:id,email:me.email})
+  : await SB.from('ward_proposal_likes').insert({proposal_id:id,email:me.email}); render(); }
+async function likeSub(id,un){ un? await SB.from('ward_subproposal_likes').delete().match({subproposal_id:id,email:me.email})
+  : await SB.from('ward_subproposal_likes').insert({subproposal_id:id,email:me.email}); render(); }
+async function addSub(pid){
+  const v=$('sub-'+pid).value.trim(); if(!v) return;
+  await SB.from('ward_subproposals').insert({proposal_id:pid,author_email:me.email,body:v}); render();
+}
+function addCmt(type,id){
+  const el=$('cmt-'+type+'-'+id);
+  if(el.style.display==='none'){ el.style.display='block'; el.focus();
+    el.onkeydown=async e=>{ if(e.key==='Enter'&&el.value.trim()){
+      await SB.from('ward_comments').insert({target_type:type,target_id:id,author_email:me.email,body:el.value.trim()}); render(); }};
+  } else el.style.display='none';
+}
+async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
+async function promote(id){
+  const {data:p} = await SB.from('ward_proposals').select('*').eq('id',id).single();
+  const maj = confirm('STRUCTURAL measure? (money/punishments/membership/governance = 7 of 10 needed)\nOK = structural (7/10) · Cancel = standard (6/10)') ? 'structural':'standard';
+  const days = parseInt(prompt('Voting window in days (default 7):','7')||'7',10);
+  const {data:mrow,error} = await SB.from('ward_measures').insert({
+    title:p.title, body:p.body, majority:maj, source_proposal_id:id, created_by:me.email,
+    closes_at:new Date(Date.now()+days*864e5).toISOString()}).select().single();
+  if(error){ alert(error.message); return; }
+  await SB.from('ward_proposals').update({status:'promoted',measure_id:mrow.id}).eq('id',id);
+  render();
+}
+
+// ---------- VOTE ----------
+async function rVote(m){
+  if(!me){ m.innerHTML=authBox(); return; }
+  const [{data:meas},{data:mine},{data:cmts}] = await Promise.all([
+    SB.from('ward_measures').select('*').order('created_at',{ascending:false}),
+    SB.from('ward_ballots').select('*'),
+    SB.from('ward_comments').select('*').eq('target_type','measure').order('created_at'),
+  ]);
+  const myBallot = id => (mine||[]).find(b=>b.measure_id===id);
+  const open=(meas||[]).filter(x=>x.status==='open'), closed=(meas||[]).filter(x=>x.status==='closed');
+  const html=[`<h2>Open votes</h2>`];
+  if(!open.length) html.push('<div class="meta" style="padding:8px 2px">Nothing on the ballot. Peace in the Ward.</div>');
+  for(const v of open){
+    const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id});
+    const s=(st||[])[0]||{}; const b=myBallot(v.id);
+    const need = v.majority==='structural'?7:6;
+    const mcmts=(cmts||[]).filter(c=>c.target_id===v.id);
+    html.push(`<div class="card"><h3>${esc(v.title)}<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?'Structural · 7/10':'Standard · 6/10'}</span></h3>
+      <div class="meta">closes ${fmtD(v.closes_at)} · needs ${need} yes of all 10 · secret ballot until closed</div>
+      <div class="body-md">${esc(v.body)}</div>
+      <div class="voterow">
+        <button class="btn${b&&b.choice==='yes'?' sel-yes':''}" onclick="cast(${v.id},'yes')">✅ Yes${b&&b.choice==='yes'?' — your vote':''}</button>
+        <button class="btn${b&&b.choice==='no'?' sel-no':''}" onclick="cast(${v.id},'no')">❌ No${b&&b.choice==='no'?' — your vote':''}</button>
+        <button class="btn${b&&b.choice==='abstain'?' sel-abstain':''}" onclick="cast(${v.id},'abstain')">🤷 Abstain</button>
+      </div>
+      ${b?'<div class="ok">Ballot cast — you can change it until the vote closes.</div>':'<div class="err">You haven’t voted yet.</div>'}
+      <div class="chips">${s.voted_count||0}/${s.member_count||10} voted${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
+      ${s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Yes</div><div><b style="color:var(--bad)">${s.no}</b>No</div><div><b>${s.abstain}</b>Abstain</div></div>`:''}
+      ${me.is_commissioner?`<div style="margin-top:10px"><button class="btn sm gold" onclick="closeMeasure(${v.id})">Close vote now</button></div>`:''}
+      <div class="thread"><b style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Discussion</b>
+        ${mcmts.map(c=>`<div class="cmt"><b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`).join('')}
+        <input id="cmt-measure-${v.id}" placeholder="Say your piece… (Enter to post)">
+      </div></div>`);
+    setTimeout(()=>{const el=$('cmt-measure-'+v.id); if(el) el.onkeydown=async e=>{ if(e.key==='Enter'&&el.value.trim()){
+      await SB.from('ward_comments').insert({target_type:'measure',target_id:v.id,author_email:me.email,body:el.value.trim()}); render(); }};},0);
+  }
+  if(closed.length){
+    html.push('<h2>Decided</h2>');
+    for(const v of closed){
+      const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id}); const s=(st||[])[0]||{};
+      html.push(`<div class="card"><h3 style="color:var(--muted)">${esc(v.title)}
+        ${v.result==='passed'?'<span class="pill green">PASSED</span>':'<span class="pill red">FAILED</span>'}</h3>
+        <div class="meta">${s.yes??'?'} yes · ${s.no??'?'} no · ${s.abstain??'?'} abstain · needed ${v.majority==='structural'?7:6}</div></div>`);
     }
   }
-  $('chips').innerHTML = html;
-  const cdEl = $('cd');
-  if (cdEl && nd){
-    const tick = () => { const s = Math.max(0, (nd - Date.now())/1e3|0);
-      cdEl.textContent = s>86400 ? Math.ceil(s/86400)+' days' : `${(s/3600|0)}:${String((s%3600/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
-      if (s === 0) setTimeout(() => location.reload(), 2500 + Math.random()*5000); };
-    tick(); setInterval(tick, 1000);
-  }
-})();
-
-// ---------- phase bar ----------
-(function(){
-  const m = DATA.marks;
-  const segs = [
-    ['Warm-up', m.launch, m.surge_start, 'warmup'],
-    ['The Surge', m.surge_start, m.lock_start, 'surge'],
-    ['Lock Week', m.lock_start, m.finale, 'lock'],
-    ['Finale', m.finale, null, 'finale']];
-  const today = now.toISOString().slice(0,10);
-  $('phasebar').innerHTML = segs.map(([name, a, b]) => {
-    const done = b ? today >= b : (state === 'final');
-    const live = today >= a && (!b || today < b) && state !== 'pre' && !done;
-    const range = b ? `${fmtD(a)} – ${fmtD(new Date(Date.parse(b+'T12:00:00')-864e5).toISOString().slice(0,10))}` : fmtD(a);
-    return `<div class="ph${done?' done':live?' live':''}">${name}<span class="dates">${range}</span></div>`;
-  }).join('');
-})();
-
-// ---------- sections by state ----------
-if (state === 'pre'){ $('teaser').classList.remove('hidden'); }
-else {
-  $('boardsec').classList.remove('hidden');
-  $('feedsec').classList.remove('hidden');
-
-  // leaderboard
-  const rows = MANAGERS.map(m => ({name:m, pts:visTotals[m], locked:visLocked[m]}))
-    .sort((a,b) => (a.locked && b.locked) ? a.locked - b.locked : (a.locked?1:0)-(b.locked?1:0) || b.pts - a.pts);
-  const maxPts = Math.max(...rows.map(r => r.pts), 1);
-  const alive = rows.filter(r => !r.locked);
-  const lowestAlive = alive.length ? alive[alive.length-1].name : null;
-  const todayPhase = (DATA.phases.find(([dstr]) => dropAt(dstr) > now) || [])[1];
-  const lastD = lastDrop ? lastDrop.rolls : {};
-  $('board').innerHTML = rows.map((r, i) => {
-    const stamps = r.locked
-      ? `<span class="stamp${r.locked===1?' pick1':''}">${r.locked===1?'👑 PICK 1':'🔒 PICK '+r.locked}</span>`
-      : (r.name === lowestAlive && (todayPhase==='lock'||todayPhase==='finale') && state==='live' ? '<span class="stamp hot">⚠️ LOCKS TONIGHT</span>' : '');
-    const delta = lastD[r.name] ? `<span class="d">+${lastD[r.name].total}</span>` : '';
-    return `<div class="row${!r.locked&&i===0?' leader':''}${r.locked?' locked':''}">
-      <div class="rank">${r.locked?'—':i+1}</div>
-      <div><div class="tname">${esc(r.name)}${stamps}</div>
-        <div class="bartrack"><div class="bar" style="width:${(r.pts/maxPts*96).toFixed(1)}%"></div></div></div>
-      <div class="pts">${r.pts}${r.locked?'':delta}</div></div>`;
-  }).join('');
-  $('boardnote').textContent = lastDrop ? `after Drop ${lastDrop.n} · ${fmtD(lastDrop.date)}` : '';
-
-  // feed
-  if (lastDrop){
-    $('feednote').textContent = `Drop ${lastDrop.n} · ${fmtD(lastDrop.date)}`;
-    if (state === 'final') $('feedtitle').firstChild.textContent = 'The Finale ';
-    const parts = [];
-    (DATA.commentary[lastDrop.date] || []).forEach(line => {
-      const tag = /🔒|locks? in|is out/i.test(line) ? 'lock' : (lastDrop.eventLabel && line.includes(lastDrop.eventLabel) ? 'event' : 'roll');
-      const label = tag === 'lock' ? 'Lock' : tag === 'event' ? lastDrop.eventLabel : 'Rolls';
-      parts.push(`<div class="ev"><span class="tag ${tag}">${esc(label)}</span>${line}</div>`);
-    });
-    const rollLine = MANAGERS.filter(m => lastDrop.rolls[m]).map(m => `${esc(m)} <b>+${lastDrop.rolls[m].total}</b>`).join(' · ');
-    parts.push(`<div class="ev"><span class="tag roll">Rolls</span>${rollLine}</div>`);
-    $('feed').innerHTML = parts.join('');
-  }
+  m.innerHTML=html.join('');
+  refreshMe().then(()=>{drawTabs();voteGate();});
+}
+async function cast(mid,choice){
+  const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice});
+  if(error) alert(error.message);
+  await refreshMe(); render();
+}
+async function closeMeasure(mid){
+  if(!confirm('Close this vote and compute the result?')) return;
+  const {data,error} = await SB.rpc('ward_close_measure',{mid});
+  if(error) alert(error.message); else alert('Result: '+data);
+  render();
 }
 
-// ---------- verifier (mirrors engine.py bit-for-bit) ----------
-const te = new TextEncoder();
-async function hmacBytes(seedStr, msg){
-  const key = await crypto.subtle.importKey('raw', te.encode(seedStr), {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', key, te.encode(msg)));
+// ---------- RULEBOOK ----------
+async function rRules(m){
+  const {data:rules} = await SB.from('ward_rules').select('*').order('sort');
+  if(!rules||!rules.length){ m.innerHTML='<div class="err">Rulebook unavailable.</div>'; return; }
+  m.innerHTML = `<h2>The Constitution</h2>
+    <div class="card"><div class="rules-toc">${rules.map(r=>`<a href="#rules" onclick="document.getElementById('r-${r.id}').scrollIntoView({behavior:'smooth'})">§${r.id} ${esc(r.title)}</a>`).join('')}</div>
+    <div class="meta">Amendments happen through §12 — Proposals → Vote. PDF era (2022–2025) archived with the commissioner.</div></div>`
+    + rules.map(r=>`<div class="card" id="r-${r.id}"><h3>§${r.id} · ${esc(r.title)}</h3>
+      <div class="body-md">${md(r.body_md)}</div>
+      ${r.amended_by?`<div class="amend">Amended by Measure #${r.amended_by}</div>`:''}</div>`).join('');
 }
-async function hInt(seed, msg){
-  const b = await hmacBytes(seed, msg);
-  let v = 0n; for (let i=0;i<8;i++) v = (v<<8n) | BigInt(b[i]);
-  return v;
+
+// ---------- HISTORY ----------
+async function rHistory(m){
+  const {data:seasons} = await SB.from('ward_seasons').select('*').order('year',{ascending:false});
+  if(!seasons){ m.innerHTML='<div class="err">History unavailable.</div>'; return; }
+  const rings={}; seasons.forEach(s=>rings[s.champion]=(rings[s.champion]||0)+1);
+  m.innerHTML = `<h2>Ring count</h2><div class="champ-row">${Object.entries(rings).sort((a,b)=>b[1]-a[1]).map(([n,c])=>
+      `<div class="champ"><div class="nm">${'🏆'.repeat(c)}</div><div>${esc(n)}</div></div>`).join('')}</div>`
+    + seasons.map(s=>`<h2>${s.year}</h2><div class="card">
+      <h3>🏆 ${esc(s.champion)} — ${esc(s.champion_team)}</h3>
+      <div class="meta">🥈 ${esc(s.runner_up)} (${esc(s.runner_up_team)}) · 🥉 ${esc(s.third)} (${esc(s.third_team)}) · 🍆 ${esc(s.last_place)} (${esc(s.last_place_team)})<br>
+      Regular season: ${esc(s.reg_season_champ||'—')}${s.pot?` · Pot $${s.pot}`:''}</div>
+      ${s.notes?`<div class="body-md" style="margin-top:6px">${esc(s.notes)}</div>`:''}
+      ${s.standings?`<table><tr><th>#</th><th>Team</th><th>Mgr</th><th style="text-align:right">W-L</th><th style="text-align:right">PF</th></tr>
+        ${s.standings.map(r=>`<tr><td>${r.rank}</td><td>${esc(r.team)}</td><td>${esc(r.mgr)}</td><td class="num">${r.wl}</td><td class="num">${r.pf??''}</td></tr>`).join('')}</table>`:''}
+      </div>`).join('');
 }
-async function roll(seed, date, name, purpose){ return Number((await hInt(seed, `${CFG.year}|${date}|${name}|${purpose}`)) % 20n) + 1; }
-function isoWeekKey(iso){
-  const d0 = new Date(iso+'T12:00:00Z');
-  const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()));
-  const day = (d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3);
-  const wk1 = new Date(Date.UTC(d.getUTCFullYear(),0,4));
-  const week = 1 + Math.round(((d - wk1)/864e5 - 3 + ((wk1.getUTCDay()+6)%7))/7);
-  return `${d.getUTCFullYear()}|${week}`;
-}
-async function verifySeason(seed){
-  // 1) fingerprint
-  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(seed)))).map(x=>x.toString(16).padStart(2,'0')).join('');
-  if (CFG.seed_hash && hash !== CFG.seed_hash) return {ok:false, msg:'Seed does NOT match the day-one fingerprint.'};
-  // 2) rebuild event schedule
-  const phaseDays = DATA.phases;   // [[date, phase]...]
-  const EVENTS = ['surstromming','beermile','diner','trophy','swap'];
-  const weeks = {};
-  for (const [dstr, ph] of phaseDays){ if (ph==='finale') continue; (weeks[isoWeekKey(dstr)] ||= []).push(dstr); }
-  const evSched = {};
-  for (const wk of Object.keys(weeks)){
-    const ranked = [...weeks[wk]];
-    const keys = {}; for (const d of ranked) keys[d] = await hInt(seed, `evday|${d}`);
-    ranked.sort((a,b) => (keys[a]<keys[b]?-1:keys[a]>keys[b]?1:0));
-    for (const d of ranked.slice(0,2)) evSched[d] = EVENTS[Number((await hInt(seed, `evtype|${d}`)) % BigInt(EVENTS.length))];
-  }
-  // 3) replay
-  const totals = {}, bestDay = {}, locked = {}; MANAGERS.forEach(m => {totals[m]=0; bestDay[m]=0;});
-  const openPicks = [10,9,8,7,6,5,4,3];
-  let prev = null, mismatches = 0, checked = 0;
-  const hist = {}; DATA.fullHistory.forEach(x => hist[x.date] = x);
-  for (const [dstr, phase] of phaseDays){
-    if (!(dstr in hist)) break;
-    const alive = MANAGERS.filter(m => !(m in locked));
-    const n = phase === 'warmup' ? 1 : 3;
-    let ev = phase === 'finale' ? null : evSched[dstr];
-    if (ev === 'trophy' && prev === null) ev = 'beermile';
-    const day = {};
-    for (const m of alive){ let t=0; for (let k=1;k<=n;k++) t += await roll(seed,dstr,m,'roll'+k); day[m]=t; }
-    if (ev === 'surstromming'){ const t = alive[Number((await hInt(seed,`evtgt|${dstr}`)) % BigInt(alive.length))]; day[t]*=2; }
-    else if (ev === 'beermile'){ for (const m of alive){ let re=0; for(let k=1;k<=n;k++) re += await roll(seed,dstr,m,'bm'+k); if (re>day[m]) day[m]=re; } }
-    else if (ev === 'diner'){ const t = alive[Number((await hInt(seed,`evtgt|${dstr}`)) % BigInt(alive.length))]; let re=0; for(let k=1;k<=n;k++) re += await roll(seed,dstr,t,'dn'+k); if (re<day[t]) day[t]=re; }
-    else if (ev === 'trophy'){ const elig = alive.filter(m => m in prev); if (elig.length){ let t = elig[0]; for (const m of elig) if (prev[m] < prev[t] || (prev[m]===prev[t] && MANAGERS.indexOf(m)<MANAGERS.indexOf(t))) t = m; day[t]+=15; } }
-    else if (ev === 'swap'){ const i = Number((await hInt(seed,`evtgt|${dstr}`)) % BigInt(alive.length)); const rest = alive.filter(m=>m!==alive[i]); const j = Number((await hInt(seed,`evtgt2|${dstr}`)) % BigInt(rest.length)); const a=alive[i], b=rest[j]; [day[a],day[b]]=[day[b],day[a]]; }
-    for (const m of alive){ totals[m]+=day[m]; if (day[m]>bestDay[m]) bestDay[m]=day[m]; }
-    // compare vs posted
-    for (const m of alive){ checked++; if (hist[dstr].rolls[m] !== day[m]) mismatches++; }
-    const tieKey = {}; for (const m of alive) tieKey[m] = [totals[m], bestDay[m], await hInt(seed,`tie|${dstr}|${m}`)];
-    const cmp = (a,b) => { const A=tieKey[a],B=tieKey[b]; for(let i=0;i<3;i++){ if(A[i]!==B[i]) return A[i]<B[i]?-1:1;} return 0; };
-    const postedLocks = (hist[dstr].locks||[]).map(l=>l.name+':'+l.pick).join(',');
-    let myLocks = '';
-    if (phase === 'lock' && openPicks.length){ const loser = [...alive].sort(cmp)[0]; locked[loser]=openPicks.shift(); myLocks = loser+':'+locked[loser]; }
-    else if (phase === 'finale'){ const s = [...alive].sort(cmp).reverse(); locked[s[0]]=1; locked[s[1]]=2; myLocks = s[0]+':1,'+s[1]+':2'; }
-    if (myLocks !== postedLocks) mismatches++;
-    prev = day;
-  }
-  return {ok: mismatches===0, msg: mismatches===0
-    ? `✅ Verified: all ${checked} rolls and every lock recomputed from the seed match what was posted. Not rigged.`
-    : `❌ ${mismatches} mismatches found. Someone has questions to answer.`};
-}
-(function initVerify(){
-  const fp = CFG.seed_hash;
-  $('commitline').innerHTML = fp
-    ? `Every number derives from one master seed generated <b>before Drop 1</b>. Its fingerprint has been on this page since launch:<div style="margin-top:6px"><code>SHA-256: ${fp}</code></div>`
-    : `The master seed gets generated on launch day; its SHA-256 fingerprint will be published right here with Drop 1 — before a single roll happens.`;
-  const btn = $('vbtn');
-  if (DATA.revealedSeed){
-    btn.textContent = '🎲 Recompute every roll of the season';
-    btn.classList.add('on');
-    btn.onclick = async () => {
-      btn.textContent = 'Recomputing…';
-      const r = await verifySeason(DATA.revealedSeed);
-      const el = $('vresult'); el.style.display='block';
-      el.innerHTML = `<b>${r.msg}</b><div style="margin-top:6px;color:var(--muted)">Seed: <code>${esc(DATA.revealedSeed)}</code></div>`;
-      btn.textContent = '🎲 Recompute every roll of the season';
-    };
-  }
-})();
+
+boot();
 </script>
 </body>
 </html>
