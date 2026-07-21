@@ -1,0 +1,28 @@
+{
+  "year": 2026,
+  "league": "69th Ward",
+  "title": "Draft Derby",
+  "managers": [
+    "Payton",
+    "Collin",
+    "Jacob",
+    "Jaret",
+    "Marshall",
+    "Haiden",
+    "Duke",
+    "Jack",
+    "Kirk",
+    "Bryson"
+  ],
+  "launch_date": "2026-07-27",
+  "draft_date": "2026-09-02",
+  "draft_time_label": "Sep 2, 6:30 PM",
+  "drop_hour_local": 18,
+  "tz": "America/Denver",
+  "surge_days": 10,
+  "lock_days": 8,
+  "events_per_week": 2,
+  "seed_hash": null,
+  "revealed_seed": null,
+  "site_url": "https://payton10.github.io/derby/"
+}

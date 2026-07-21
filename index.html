@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>69th Ward Draft Derby</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --surface2:#222220;
+    --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --ring:rgba(255,255,255,0.10);
+    --accent:#3987e5; --gold:#c98500; --goldbright:#fab219; --warn:#ec835a;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--page); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.45;}
+  .wrap{max-width:680px; margin:0 auto; padding:20px 16px 48px;}
+  header.hero{text-align:center; padding:26px 0 18px;}
+  .kicker{font-size:12px; letter-spacing:.24em; color:var(--gold); text-transform:uppercase; font-weight:700;}
+  h1{font-size:34px; font-weight:800; letter-spacing:-.01em; margin:6px 0 2px;}
+  .sub{color:var(--ink2); font-size:14px;}
+  .counts{display:flex; gap:10px; justify-content:center; margin:18px 0 6px; flex-wrap:wrap;}
+  .chip{background:var(--surface); border:1px solid var(--ring); border-radius:12px; padding:10px 16px; text-align:center; min-width:150px;}
+  .chip .big{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums;}
+  .chip .lbl{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.12em; margin-top:2px;}
+  .chip.gold .big{color:var(--goldbright);}
+  .phases{display:flex; gap:4px; margin:20px 0 6px;}
+  .ph{flex:1; text-align:center; font-size:11px; color:var(--muted); padding-top:7px;}
+  .ph::before{content:""; display:block; height:4px; border-radius:2px; background:var(--baseline); margin-bottom:6px;}
+  .ph.done::before{background:var(--accent);}
+  .ph.live::before{background:var(--goldbright);}
+  .ph.live{color:var(--goldbright); font-weight:700;}
+  .ph .dates{display:block; font-size:10px; color:var(--muted); font-weight:400;}
+  section{margin-top:28px;}
+  h2{font-size:13px; text-transform:uppercase; letter-spacing:.18em; color:var(--ink2); margin-bottom:12px; font-weight:700;}
+  h2 .note{float:right; font-size:11px; color:var(--muted); letter-spacing:0; text-transform:none; font-weight:400;}
+  .board,.feed,.card{background:var(--surface); border:1px solid var(--ring); border-radius:14px;}
+  .board{padding:16px 14px;}
+  .card{padding:16px; font-size:13.5px; color:var(--ink2);}
+  .row{display:grid; grid-template-columns:26px 1fr 58px; align-items:center; gap:10px; padding:7px 2px;}
+  .row+.row{border-top:1px solid var(--grid);}
+  .rank{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums; text-align:right;}
+  .tname{font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bartrack{height:10px; margin-top:4px; position:relative;}
+  .bar{height:10px; border-radius:0 4px 4px 0; background:var(--accent); position:absolute; left:0; top:0;}
+  .row.leader .bar{background:var(--gold);}
+  .row.locked .bar{background:var(--baseline);}
+  .row.locked .tname{color:var(--muted); font-weight:500;}
+  .pts{font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; text-align:right;}
+  .pts .d{display:block; font-size:10.5px; font-weight:600; color:#0ca30c;}
+  .row.locked .pts{color:var(--muted);}
+  .stamp{display:inline-block; font-size:10px; font-weight:800; color:var(--ink2); background:var(--surface2); border:1px solid var(--ring); border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:1px;}
+  .stamp.hot{color:var(--warn); border-color:rgba(236,131,90,.45);}
+  .stamp.pick1{color:var(--goldbright); border-color:rgba(201,133,0,.5);}
+  .feed{padding:4px 16px;}
+  .ev{padding:12px 0; border-bottom:1px solid var(--grid); font-size:13.5px; color:var(--ink2);}
+  .ev:last-child{border-bottom:none;}
+  .ev b{color:var(--ink);}
+  .tag{display:inline-block; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; border-radius:6px; padding:2px 7px; margin-right:8px; vertical-align:1px;}
+  .tag.lock{background:#2a2a28; color:var(--ink2); border:1px solid var(--ring);}
+  .tag.event{background:rgba(201,133,0,.15); color:var(--goldbright); border:1px solid rgba(201,133,0,.4);}
+  .tag.roll{background:rgba(57,135,229,.14); color:#86b6ef; border:1px solid rgba(57,135,229,.35);}
+  .rules li{margin:0 0 8px 0;}
+  .rules ul{margin-left:18px;}
+  .verify{margin-top:26px;}
+  .verify summary{list-style:none; cursor:pointer; text-align:center; font-size:12.5px; color:var(--ink2); padding:9px 14px; background:var(--surface); border:1px solid var(--ring); border-radius:999px; display:table; margin:0 auto; font-weight:600;}
+  .verify summary::-webkit-details-marker{display:none;}
+  .verify[open] summary{color:var(--goldbright); border-color:rgba(201,133,0,.4);}
+  .vpanel{margin-top:12px; background:var(--surface); border:1px solid var(--ring); border-radius:14px; padding:16px; font-size:12.5px; color:var(--ink2);}
+  .vpanel h3{font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--ink); margin:14px 0 6px;}
+  .vpanel h3:first-child{margin-top:0;}
+  .vpanel code{font-size:10.5px; background:var(--surface2); border:1px solid var(--ring); padding:1px 6px; border-radius:6px; word-break:break-all;}
+  .vpanel ol{margin:6px 0 0 18px;}
+  .vpanel li{margin-bottom:6px;}
+  .vbtn{display:block; width:100%; margin-top:12px; padding:9px; border-radius:10px; border:1px solid var(--ring); background:var(--surface2); color:var(--muted); font-size:12.5px; font-weight:700; text-align:center; cursor:default;}
+  .vbtn.on{color:var(--goldbright); border-color:rgba(201,133,0,.4); cursor:pointer;}
+  .vresult{margin-top:10px; font-size:12.5px; display:none;}
+  nav.tabs{display:flex; gap:6px; justify-content:center; margin-top:34px; border-top:1px solid var(--grid); padding-top:16px;}
+  .tab{font-size:12.5px; color:var(--muted); padding:7px 14px; border-radius:999px; border:1px solid transparent; text-decoration:none;}
+  .tab.on{color:var(--ink); background:var(--surface); border-color:var(--ring); font-weight:700;}
+  footer{margin-top:14px; text-align:center; font-size:11px; color:var(--muted);}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">69th Ward · Est. 2022</div>
+    <h1>Draft Derby</h1>
+    <div class="sub" id="tagline"></div>
+  </header>
+
+  <div class="counts" id="chips"></div>
+  <div class="phases" id="phasebar"></div>
+
+  <section id="teaser" class="hidden">
+    <h2>How it works</h2>
+    <div class="card rules">
+      <ul>
+        <li><b>Every night at 6:00 PM</b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
+        <li><b>Lock Week:</b> each night, the lowest total gets locked into the worst open draft slot. Pick 10 goes first. Then 9. Then you.</li>
+        <li><b>The Finale:</b> the last two standing roll head-to-head for the #1 pick — two days before the draft.</li>
+        <li><b>Events</b> hit twice a week. The can of surströmming opens for someone. The beer mile giveth.</li>
+        <li>Most points = first pick. No re-rolls. No mercy. Provably rigged-proof (see below).</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="boardsec" class="hidden">
+    <h2>Leaderboard <span class="note" id="boardnote"></span></h2>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section id="feedsec" class="hidden">
+    <h2 id="feedtitle">Last night's drop <span class="note" id="feednote"></span></h2>
+    <div class="feed" id="feed"></div>
+  </section>
+
+  <details class="verify">
+    <summary>🎲 Is this rigged? Prove it isn't →</summary>
+    <div class="vpanel">
+      <h3>The commitment</h3>
+      <div id="commitline"></div>
+      <h3>How each roll is made</h3>
+      <code>roll = HMAC-SHA256(seed, year·date·name·purpose) % 20 + 1</code> — a pure function.
+      Same seed, same date, same name → same number, every time, on anyone's computer. The commissioner
+      can't re-roll, cherry-pick, or "fix a glitch" without changing the seed — which would break the fingerprint above.
+      <h3>The reveal</h3>
+      <ol>
+        <li>After the finale, the master seed is published right here.</li>
+        <li>This page then recomputes <b>every roll of the season in your own browser</b> and checks them against every drop as it was posted.</li>
+        <li>Extra credit: hash the revealed seed yourself and match the day-one fingerprint.</li>
+      </ol>
+      <div class="vbtn" id="vbtn">🔒 Recompute every roll — unlocks when the seed is revealed</div>
+      <div class="vresult" id="vresult"></div>
+      <h3>Ties</h3>
+      Tied at a lock: best single night wins, then a seeded coin flip. Nothing is ever decided by a human.
+    </div>
+  </details>
+
+  <nav class="tabs">
+    <span class="tab on">Derby</span><span class="tab">League</span><span class="tab">History</span><span class="tab">Rules</span>
+  </nav>
+  <footer>The 69th Ward · Buy-in $20 + $2/loss · Last place eats the herring 🐟</footer>
+</div>
+
+<script>
+const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jack", "Kirk", "Bryson"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": null}, "state": "pre", "asOf": "2026-07-21", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-13", "lock_start": "2026-08-23", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "warmup"], ["2026-08-12", "warmup"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "surge"], ["2026-08-22", "surge"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-21T15:00:57.242755-06:00"};
+const CFG = DATA.cfg, MANAGERS = CFG.managers;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const fmtD = iso => new Date(iso + "T12:00:00").toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const dropAt = iso => new Date(iso + "T18:00:00-06:00");  // 6 PM MDT
+
+// ---------- visible drops: hide tonight's drop until 6:00 PM sharp ----------
+const now = new Date();
+const visHistory = DATA.fullHistory.filter(x => dropAt(x.date) <= now);
+const visDrops = DATA.drops.filter(x => dropAt(x.date) <= now);
+const lastDrop = visDrops[visDrops.length - 1] || null;
+const visLocked = {}; visHistory.forEach(x => (x.locks||[]).forEach(l => visLocked[l.name] = l.pick));
+const visTotals = {}; MANAGERS.forEach(m => visTotals[m] = 0);
+visHistory.forEach(x => MANAGERS.forEach(m => { if (m in x.rolls) visTotals[m] += x.rolls[m]; }));
+const state = DATA.state === 'pre' ? 'pre' : (Object.keys(visLocked).length >= MANAGERS.length ? 'final' : (visHistory.length ? 'live' : 'pre'));
+
+// If a drop's time has passed but its data isn't in this build yet (Pages deploy lag), poll-reload.
+(function(){
+  const missing = DATA.phases.some(([dstr]) => dropAt(dstr) <= now && !DATA.fullHistory.some(x => x.date === dstr) && DATA.state !== 'pre');
+  if (missing && (now - dropAt(DATA.phases.filter(([dstr]) => dropAt(dstr) <= now).pop()[0])) < 15*60*1000)
+    setTimeout(() => location.reload(), 30000);
+})();
+
+// ---------- header ----------
+$('tagline').textContent = state === 'final'
+  ? 'The order is set. See you at the draft.'
+  : `Most points on ${fmtD(DATA.marks.finale)} drafts first. Nobody is safe until their slot locks.`;
+
+// ---------- chips ----------
+function nextDropTime(){
+  for (const [dstr] of DATA.phases){ const t = dropAt(dstr); if (t > now) return t; }
+  return null;
+}
+function chip(big, lbl, gold, id){ return `<div class="chip${gold?' gold':''}"><div class="big" ${id?`id="${id}"`:''}>${big}</div><div class="lbl">${lbl}</div></div>`; }
+(function renderChips(){
+  const draftT = new Date(DATA.marks.draft + "T18:30:00-06:00");
+  const days = Math.max(0, Math.ceil((draftT - now) / 864e5));
+  let html = chip(days + ' days', 'Until the draft · ' + esc(CFG.draft_time_label), true);
+  const nd = nextDropTime();
+  if (state !== 'final' && nd) html += chip('—', (state==='pre'?'Until the first drop':'Until tonight’s drop') + ' · 6:00 PM', false, 'cd');
+  if (state === 'live'){
+    const alive = MANAGERS.filter(m => !(m in visLocked));
+    const todayPhase = (DATA.phases.find(([dstr]) => dropAt(dstr) > now) || [])[1];
+    if ((todayPhase === 'lock' || todayPhase === 'finale') && alive.length){
+      html += todayPhase === 'finale'
+        ? chip('Pick 1', 'Decided tonight', false)
+        : chip('Pick ' + Math.max(...[10,9,8,7,6,5,4,3].filter(p => !Object.values(visLocked).includes(p))), 'Locks tonight', false);
+    }
+  }
+  $('chips').innerHTML = html;
+  const cdEl = $('cd');
+  if (cdEl && nd){
+    const tick = () => { const s = Math.max(0, (nd - Date.now())/1e3|0);
+      cdEl.textContent = s>86400 ? Math.ceil(s/86400)+' days' : `${(s/3600|0)}:${String((s%3600/60)|0).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+      if (s === 0) setTimeout(() => location.reload(), 2500 + Math.random()*5000); };
+    tick(); setInterval(tick, 1000);
+  }
+})();
+
+// ---------- phase bar ----------
+(function(){
+  const m = DATA.marks;
+  const segs = [
+    ['Warm-up', m.launch, m.surge_start, 'warmup'],
+    ['The Surge', m.surge_start, m.lock_start, 'surge'],
+    ['Lock Week', m.lock_start, m.finale, 'lock'],
+    ['Finale', m.finale, null, 'finale']];
+  const today = now.toISOString().slice(0,10);
+  $('phasebar').innerHTML = segs.map(([name, a, b]) => {
+    const done = b ? today >= b : (state === 'final');
+    const live = today >= a && (!b || today < b) && state !== 'pre' && !done;
+    const range = b ? `${fmtD(a)} – ${fmtD(new Date(Date.parse(b+'T12:00:00')-864e5).toISOString().slice(0,10))}` : fmtD(a);
+    return `<div class="ph${done?' done':live?' live':''}">${name}<span class="dates">${range}</span></div>`;
+  }).join('');
+})();
+
+// ---------- sections by state ----------
+if (state === 'pre'){ $('teaser').classList.remove('hidden'); }
+else {
+  $('boardsec').classList.remove('hidden');
+  $('feedsec').classList.remove('hidden');
+
+  // leaderboard
+  const rows = MANAGERS.map(m => ({name:m, pts:visTotals[m], locked:visLocked[m]}))
+    .sort((a,b) => (a.locked && b.locked) ? a.locked - b.locked : (a.locked?1:0)-(b.locked?1:0) || b.pts - a.pts);
+  const maxPts = Math.max(...rows.map(r => r.pts), 1);
+  const alive = rows.filter(r => !r.locked);
+  const lowestAlive = alive.length ? alive[alive.length-1].name : null;
+  const todayPhase = (DATA.phases.find(([dstr]) => dropAt(dstr) > now) || [])[1];
+  const lastD = lastDrop ? lastDrop.rolls : {};
+  $('board').innerHTML = rows.map((r, i) => {
+    const stamps = r.locked
+      ? `<span class="stamp${r.locked===1?' pick1':''}">${r.locked===1?'👑 PICK 1':'🔒 PICK '+r.locked}</span>`
+      : (r.name === lowestAlive && (todayPhase==='lock'||todayPhase==='finale') && state==='live' ? '<span class="stamp hot">⚠️ LOCKS TONIGHT</span>' : '');
+    const delta = lastD[r.name] ? `<span class="d">+${lastD[r.name].total}</span>` : '';
+    return `<div class="row${!r.locked&&i===0?' leader':''}${r.locked?' locked':''}">
+      <div class="rank">${r.locked?'—':i+1}</div>
+      <div><div class="tname">${esc(r.name)}${stamps}</div>
+        <div class="bartrack"><div class="bar" style="width:${(r.pts/maxPts*96).toFixed(1)}%"></div></div></div>
+      <div class="pts">${r.pts}${r.locked?'':delta}</div></div>`;
+  }).join('');
+  $('boardnote').textContent = lastDrop ? `after Drop ${lastDrop.n} · ${fmtD(lastDrop.date)}` : '';
+
+  // feed
+  if (lastDrop){
+    $('feednote').textContent = `Drop ${lastDrop.n} · ${fmtD(lastDrop.date)}`;
+    if (state === 'final') $('feedtitle').firstChild.textContent = 'The Finale ';
+    const parts = [];
+    (DATA.commentary[lastDrop.date] || []).forEach(line => {
+      const tag = /🔒|locks? in|is out/i.test(line) ? 'lock' : (lastDrop.eventLabel && line.includes(lastDrop.eventLabel) ? 'event' : 'roll');
+      const label = tag === 'lock' ? 'Lock' : tag === 'event' ? lastDrop.eventLabel : 'Rolls';
+      parts.push(`<div class="ev"><span class="tag ${tag}">${esc(label)}</span>${line}</div>`);
+    });
+    const rollLine = MANAGERS.filter(m => lastDrop.rolls[m]).map(m => `${esc(m)} <b>+${lastDrop.rolls[m].total}</b>`).join(' · ');
+    parts.push(`<div class="ev"><span class="tag roll">Rolls</span>${rollLine}</div>`);
+    $('feed').innerHTML = parts.join('');
+  }
+}
+
+// ---------- verifier (mirrors engine.py bit-for-bit) ----------
+const te = new TextEncoder();
+async function hmacBytes(seedStr, msg){
+  const key = await crypto.subtle.importKey('raw', te.encode(seedStr), {name:'HMAC', hash:'SHA-256'}, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, te.encode(msg)));
+}
+async function hInt(seed, msg){
+  const b = await hmacBytes(seed, msg);
+  let v = 0n; for (let i=0;i<8;i++) v = (v<<8n) | BigInt(b[i]);
+  return v;
+}
+async function roll(seed, date, name, purpose){ return Number((await hInt(seed, `${CFG.year}|${date}|${name}|${purpose}`)) % 20n) + 1; }
+function isoWeekKey(iso){
+  const d0 = new Date(iso+'T12:00:00Z');
+  const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()));
+  const day = (d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3);
+  const wk1 = new Date(Date.UTC(d.getUTCFullYear(),0,4));
+  const week = 1 + Math.round(((d - wk1)/864e5 - 3 + ((wk1.getUTCDay()+6)%7))/7);
+  return `${d.getUTCFullYear()}|${week}`;
+}
+async function verifySeason(seed){
+  // 1) fingerprint
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', te.encode(seed)))).map(x=>x.toString(16).padStart(2,'0')).join('');
+  if (CFG.seed_hash && hash !== CFG.seed_hash) return {ok:false, msg:'Seed does NOT match the day-one fingerprint.'};
+  // 2) rebuild event schedule
+  const phaseDays = DATA.phases;   // [[date, phase]...]
+  const EVENTS = ['surstromming','beermile','diner','trophy','swap'];
+  const weeks = {};
+  for (const [dstr, ph] of phaseDays){ if (ph==='finale') continue; (weeks[isoWeekKey(dstr)] ||= []).push(dstr); }
+  const evSched = {};
+  for (const wk of Object.keys(weeks)){
+    const ranked = [...weeks[wk]];
+    const keys = {}; for (const d of ranked) keys[d] = await hInt(seed, `evday|${d}`);
+    ranked.sort((a,b) => (keys[a]<keys[b]?-1:keys[a]>keys[b]?1:0));
+    for (const d of ranked.slice(0,2)) evSched[d] = EVENTS[Number((await hInt(seed, `evtype|${d}`)) % BigInt(EVENTS.length))];
+  }
+  // 3) replay
+  const totals = {}, bestDay = {}, locked = {}; MANAGERS.forEach(m => {totals[m]=0; bestDay[m]=0;});
+  const openPicks = [10,9,8,7,6,5,4,3];
+  let prev = null, mismatches = 0, checked = 0;
+  const hist = {}; DATA.fullHistory.forEach(x => hist[x.date] = x);
+  for (const [dstr, phase] of phaseDays){
+    if (!(dstr in hist)) break;
+    const alive = MANAGERS.filter(m => !(m in locked));
+    const n = phase === 'warmup' ? 1 : 3;
+    let ev = phase === 'finale' ? null : evSched[dstr];
+    if (ev === 'trophy' && prev === null) ev = 'beermile';
+    const day = {};
+    for (const m of alive){ let t=0; for (let k=1;k<=n;k++) t += await roll(seed,dstr,m,'roll'+k); day[m]=t; }
+    if (ev === 'surstromming'){ const t = alive[Number((await hInt(seed,`evtgt|${dstr}`)) % BigInt(alive.length))]; day[t]*=2; }
+    else if (ev === 'beermile'){ for (const m of alive){ let re=0; for(let k=1;k<=n;k++) re += await roll(seed,dstr,m,'bm'+k); if (re>day[m]) day[m]=re; } }
+    else if (ev === 'diner'){ const t = alive[Number((await hInt(seed,`evtgt|${dstr}`)) % BigInt(alive.length))]; let re=0; for(let k=1;k<=n;k++) re += await roll(seed,dstr,t,'dn'+k); if (re<day[t]) day[t]=re; }
+    else if (ev === 'trophy'){ const elig = alive.filter(m => m in prev); if (elig.length){ let t = elig[0]; for (const m of elig) if (prev[m] < prev[t] || (prev[m]===prev[t] && MANAGERS.indexOf(m)<MANAGERS.indexOf(t))) t = m; day[t]+=15; } }
+    else if (ev === 'swap'){ const i = Number((await hInt(seed,`evtgt|${dstr}`)) % BigInt(alive.length)); const rest = alive.filter(m=>m!==alive[i]); const j = Number((await hInt(seed,`evtgt2|${dstr}`)) % BigInt(rest.length)); const a=alive[i], b=rest[j]; [day[a],day[b]]=[day[b],day[a]]; }
+    for (const m of alive){ totals[m]+=day[m]; if (day[m]>bestDay[m]) bestDay[m]=day[m]; }
+    // compare vs posted
+    for (const m of alive){ checked++; if (hist[dstr].rolls[m] !== day[m]) mismatches++; }
+    const tieKey = {}; for (const m of alive) tieKey[m] = [totals[m], bestDay[m], await hInt(seed,`tie|${dstr}|${m}`)];
+    const cmp = (a,b) => { const A=tieKey[a],B=tieKey[b]; for(let i=0;i<3;i++){ if(A[i]!==B[i]) return A[i]<B[i]?-1:1;} return 0; };
+    const postedLocks = (hist[dstr].locks||[]).map(l=>l.name+':'+l.pick).join(',');
+    let myLocks = '';
+    if (phase === 'lock' && openPicks.length){ const loser = [...alive].sort(cmp)[0]; locked[loser]=openPicks.shift(); myLocks = loser+':'+locked[loser]; }
+    else if (phase === 'finale'){ const s = [...alive].sort(cmp).reverse(); locked[s[0]]=1; locked[s[1]]=2; myLocks = s[0]+':1,'+s[1]+':2'; }
+    if (myLocks !== postedLocks) mismatches++;
+    prev = day;
+  }
+  return {ok: mismatches===0, msg: mismatches===0
+    ? `✅ Verified: all ${checked} rolls and every lock recomputed from the seed match what was posted. Not rigged.`
+    : `❌ ${mismatches} mismatches found. Someone has questions to answer.`};
+}
+(function initVerify(){
+  const fp = CFG.seed_hash;
+  $('commitline').innerHTML = fp
+    ? `Every number derives from one master seed generated <b>before Drop 1</b>. Its fingerprint has been on this page since launch:<div style="margin-top:6px"><code>SHA-256: ${fp}</code></div>`
+    : `The master seed gets generated on launch day; its SHA-256 fingerprint will be published right here with Drop 1 — before a single roll happens.`;
+  const btn = $('vbtn');
+  if (DATA.revealedSeed){
+    btn.textContent = '🎲 Recompute every roll of the season';
+    btn.classList.add('on');
+    btn.onclick = async () => {
+      btn.textContent = 'Recomputing…';
+      const r = await verifySeason(DATA.revealedSeed);
+      const el = $('vresult'); el.style.display='block';
+      el.innerHTML = `<b>${r.msg}</b><div style="margin-top:6px;color:var(--muted)">Seed: <code>${esc(DATA.revealedSeed)}</code></div>`;
+      btn.textContent = '🎲 Recompute every roll of the season';
+    };
+  }
+})();
+</script>
+</body>
+</html>
