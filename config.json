@@ -22,7 +22,7 @@
   "surge_days": 10,
   "lock_days": 8,
   "events_per_week": 2,
-  "seed_hash": null,
+  "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af",
   "revealed_seed": null,
   "site_url": "https://payton10.github.io/derby/"
 }
