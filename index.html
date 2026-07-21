@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0d0d">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>The 69th Ward</title>
 <style>
   :root{color-scheme:dark;
@@ -49,10 +53,16 @@
   .likebtn{background:none;border:1px solid var(--ring);border-radius:999px;color:var(--ink2);font-size:12px;padding:3px 11px;cursor:pointer}
   .likebtn.liked{color:var(--goldbright);border-color:rgba(201,133,0,.5);background:rgba(201,133,0,.1)}
   .thread{margin-top:12px;border-top:1px solid var(--grid);padding-top:10px}
+  .threadlbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;font-weight:700}
   .cmt{padding:7px 0;font-size:13px;color:var(--ink2);border-bottom:1px solid var(--grid)}
   .cmt:last-child{border:none}
   .cmt b{color:var(--ink)}
   .cmt .meta{margin-left:6px}
+  .cdel{float:right;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0 4px;line-height:1}
+  .cdel:hover{color:var(--bad)}
+  .composer{display:flex;gap:8px;margin-top:10px;align-items:stretch}
+  .composer input{margin-top:0;flex:1}
+  .composer .btn{white-space:nowrap}
   .sub-p{margin:8px 0 0 14px;padding:10px 12px;border-left:2px solid var(--baseline);background:var(--surface2);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink2)}
   .voterow{display:flex;gap:8px;margin-top:12px}
   .voterow .btn{flex:1;text-align:center}
@@ -115,7 +125,7 @@ const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>'
 const fmtD = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^- (.*)$/gm,'&nbsp;•&nbsp;$1').replace(/§(\d+)/g,'§$1');
 
-let session=null, me=null, members=[], TAB='home', pendingVotes=[];
+let session=null, me=null, members=[], TAB='home', TARGET=null, pendingVotes=[];
 const DRAFT = new Date('2026-09-02T18:30:00-06:00');
 const SEASON_START = new Date('2026-09-09T00:00:00-06:00');
 const name = e => (members.find(m=>m.email===e)||{}).name || (e||'').split('@')[0];
@@ -127,11 +137,24 @@ function drawTabs(){
     ? `<a class="tab" href="derby/">Derby 🎲</a>`
     : `<button class="tab${TAB===k?' on':''}" onclick="go('${k}')">${l}${k==='vote'&&pendingVotes.length?'<span class=dot></span>':''}</button>`).join('');
 }
-function go(t){ TAB=t; location.hash=t; render(); }
-window.addEventListener('hashchange',()=>{const h=location.hash.slice(1); if(h&&h!==TAB&&TABS.some(([k])=>k===h)){TAB=h;render();}});
+function go(t){ TAB=t; TARGET=null; location.hash=t; render(); }
+function parseHash(){ const p=location.hash.slice(1).split('/'); if(TABS.some(([k])=>k===p[0])){ TAB=p[0]; TARGET=p[1]||null; return true; } return false; }
+window.addEventListener('hashchange',()=>{ if(parseHash()) render(); });
+function focusTarget(prefix){
+  if(!TARGET) return; const el=$(prefix+'-'+TARGET);
+  if(el){ setTimeout(()=>{ el.scrollIntoView({behavior:'smooth',block:'start'}); el.style.outline='2px solid var(--goldbright)'; el.style.outlineOffset='3px'; setTimeout(()=>el.style.outline='',2600); },80); }
+  TARGET=null;
+}
+function copyLink(path){
+  const u=location.origin+location.pathname+'#'+path;
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copied 🔗'),()=>prompt('Copy this link:',u));
+}
+function toast(t){ const d=document.createElement('div'); d.textContent=t;
+  d.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:8px 18px;font-size:13px;z-index:99;color:var(--ink)';
+  document.body.appendChild(d); setTimeout(()=>d.remove(),1800); }
 
 async function boot(){
-  const h=location.hash.slice(1); if(TABS.some(([k])=>k===h)) TAB=h;
+  parseHash();
   const {data:{session:s}} = await SB.auth.getSession(); session=s;
   SB.auth.onAuthStateChange((_e,s2)=>{ session=s2; refreshMe().then(render); });
   await refreshMe();
@@ -351,31 +374,40 @@ async function rProposals(m){
     const pl=likeCt(p.id), iLike=pl.some(l=>l.email===me.email);
     const psubs=(subs||[]).filter(s=>s.proposal_id===p.id);
     const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
-    html.push(`<div class="card"><h3>${esc(p.title)}${pl.length>=2?'<span class="pill blue">Vote-eligible</span>':''}</h3>
+    html.push(`<div class="card" id="p-${p.id}"><h3>${esc(p.title)}${pl.length>=2?'<span class="pill blue">Vote-eligible</span>':''}</h3>
       <div class="meta">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)}</div>
       <div class="body-md">${esc(p.body)}</div>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="likebtn${iLike?' liked':''}" onclick="likeProp(${p.id},${iLike})">👍 ${pl.length}</button>
+        <button class="likebtn" onclick="copyLink('proposals/${p.id}')" title="Copy link">🔗</button>
         ${me.is_commissioner?`<button class="btn sm gold" onclick="promote(${p.id})">Send to vote →</button>
-        <button class="btn sm ghost" onclick="archiveProp(${p.id})">archive</button>`:''}
+        <button class="btn sm ghost" onclick="archiveProp(${p.id})">Archive</button>
+        <button class="btn sm ghost" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}
       </div>
       ${pl.length?`<div class="chips">liked by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
       ${psubs.map(s=>{const sl=(slikes||[]).filter(x=>x.subproposal_id===s.id), isl=sl.some(x=>x.email===me.email);
         return `<div class="sub-p"><b>${esc(name(s.author_email))}’s version:</b> ${esc(s.body)}
         <div style="margin-top:6px"><button class="likebtn${isl?' liked':''}" onclick="likeSub(${s.id},${isl})">👍 ${sl.length}</button></div></div>`;}).join('')}
-      <div class="thread">
-        ${pcmts.map(c=>`<div class="cmt"><b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`).join('')}
-        <input id="sub-${p.id}" placeholder="Add a sub-proposal (alternate version)…">
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn sm" onclick="addSub(${p.id})">+ Sub-proposal</button>
-          <button class="btn sm ghost" onclick="addCmt('proposal',${p.id})">💬 Comment</button>
+      <div class="thread"><span class="threadlbl">Discussion</span>
+        ${pcmts.map(c=>cmtHtml(c)).join('')}
+        <div class="composer">
+          <input id="cmt-proposal-${p.id}" placeholder="Say something…" onkeydown="if(event.key==='Enter')postCmt('proposal',${p.id})">
+          <button class="btn sm primary" onclick="postCmt('proposal',${p.id})">Post</button>
         </div>
-        <input id="cmt-proposal-${p.id}" placeholder="Comment…" style="display:none">
+        <button class="btn sm ghost" style="margin-top:10px" onclick="toggleSub(${p.id})">✍️ Suggest an alternate version</button>
+        <div id="subbox-${p.id}" style="display:none">
+          <div class="composer">
+            <input id="sub-${p.id}" placeholder="Your version of this rule…" onkeydown="if(event.key==='Enter')addSub(${p.id})">
+            <button class="btn sm primary" onclick="addSub(${p.id})">Post version</button>
+          </div>
+        </div>
       </div></div>`);
   }
-  if(done.length) html.push(`<h2>Resolved</h2>`+done.map(p=>`<div class="card"><h3 style="color:var(--muted)">${esc(p.title)}</h3>
-    <div class="meta">${p.status==='promoted'?`→ went to vote (Measure #${p.measure_id||'?'})`:'archived'}</div></div>`).join(''));
+  if(done.length) html.push(`<h2>Resolved</h2>`+done.map(p=>`<div class="card" id="p-${p.id}"><h3 style="color:var(--muted)">${esc(p.title)}
+    ${me.is_commissioner?`<button class="cdel" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}</h3>
+    <div class="meta">${p.status==='promoted'?`→ went to vote (<a href="#vote/${p.measure_id||''}">Measure #${p.measure_id||'?'}</a>)`:'archived'}</div></div>`).join(''));
   m.innerHTML = html.join('');
+  focusTarget('p');
 }
 async function newProp(){
   const t=$('np-t').value.trim(), b=$('np-b').value.trim();
@@ -392,12 +424,29 @@ async function addSub(pid){
   const v=$('sub-'+pid).value.trim(); if(!v) return;
   await SB.from('ward_subproposals').insert({proposal_id:pid,author_email:me.email,body:v}); render();
 }
-function addCmt(type,id){
-  const el=$('cmt-'+type+'-'+id);
-  if(el.style.display==='none'){ el.style.display='block'; el.focus();
-    el.onkeydown=async e=>{ if(e.key==='Enter'&&el.value.trim()){
-      await SB.from('ward_comments').insert({target_type:type,target_id:id,author_email:me.email,body:el.value.trim()}); render(); }};
-  } else el.style.display='none';
+function cmtHtml(c){
+  const canDel = me && (c.author_email===me.email || me.is_commissioner);
+  return `<div class="cmt">${canDel?`<button class="cdel" onclick="delCmt(${c.id})" title="Delete comment">×</button>`:''}<b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`;
+}
+async function postCmt(type,id){
+  const el=$('cmt-'+type+'-'+id); const v=el.value.trim(); if(!v) return;
+  const {error} = await SB.from('ward_comments').insert({target_type:type,target_id:id,author_email:me.email,body:v});
+  if(error){ toast(error.message); return; }
+  render();
+}
+async function delCmt(id){ await SB.from('ward_comments').delete().eq('id',id); render(); }
+function toggleSub(pid){ const b=$('subbox-'+pid); b.style.display = b.style.display==='none'?'block':'none'; if(b.style.display==='block') $('sub-'+pid).focus(); }
+async function delProp(id){
+  if(!confirm('Delete this proposal — thread, likes, versions, everything? This is permanent.')) return;
+  const {error} = await SB.rpc('ward_delete_proposal',{pid:id});
+  if(error) alert(error.message); else toast('Proposal deleted');
+  render();
+}
+async function delMeasure(id){
+  if(!confirm('Delete this vote entirely — ballots, discussion, result? Its source proposal reopens. Permanent.')) return;
+  const {error} = await SB.rpc('ward_delete_measure',{mid:id});
+  if(error) alert(error.message); else toast('Vote deleted');
+  render();
 }
 async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
 async function promote(id){
@@ -429,7 +478,8 @@ async function rVote(m){
     const s=(st||[])[0]||{}; const b=myBallot(v.id);
     const need = v.majority==='structural'?7:6;
     const mcmts=(cmts||[]).filter(c=>c.target_id===v.id);
-    html.push(`<div class="card"><h3>${esc(v.title)}<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?'Structural · 7/10':'Standard · 6/10'}</span></h3>
+    html.push(`<div class="card" id="m-${v.id}"><h3>${esc(v.title)}<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?'Structural · 7/10':'Standard · 6/10'}</span>
+      <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button></h3>
       <div class="meta">closes ${fmtD(v.closes_at)} · needs ${need} yes of all 10 · secret ballot until closed</div>
       <div class="body-md">${esc(v.body)}</div>
       <div class="voterow">
@@ -440,24 +490,29 @@ async function rVote(m){
       ${b?'<div class="ok">Ballot cast — you can change it until the vote closes.</div>':'<div class="err">You haven’t voted yet.</div>'}
       <div class="chips">${s.voted_count||0}/${s.member_count||10} voted${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
       ${s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Yes</div><div><b style="color:var(--bad)">${s.no}</b>No</div><div><b>${s.abstain}</b>Abstain</div></div>`:''}
-      ${me.is_commissioner?`<div style="margin-top:10px"><button class="btn sm gold" onclick="closeMeasure(${v.id})">Close vote now</button></div>`:''}
-      <div class="thread"><b style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Discussion</b>
-        ${mcmts.map(c=>`<div class="cmt"><b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`).join('')}
-        <input id="cmt-measure-${v.id}" placeholder="Say your piece… (Enter to post)">
+      ${me.is_commissioner?`<div style="margin-top:10px"><button class="btn sm gold" onclick="closeMeasure(${v.id})">Close vote now</button>
+        <button class="btn sm ghost" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button></div>`:''}
+      <div class="thread"><span class="threadlbl">Discussion</span>
+        ${mcmts.map(c=>cmtHtml(c)).join('')}
+        <div class="composer">
+          <input id="cmt-measure-${v.id}" placeholder="Say your piece…" onkeydown="if(event.key==='Enter')postCmt('measure',${v.id})">
+          <button class="btn sm primary" onclick="postCmt('measure',${v.id})">Post</button>
+        </div>
       </div></div>`);
-    setTimeout(()=>{const el=$('cmt-measure-'+v.id); if(el) el.onkeydown=async e=>{ if(e.key==='Enter'&&el.value.trim()){
-      await SB.from('ward_comments').insert({target_type:'measure',target_id:v.id,author_email:me.email,body:el.value.trim()}); render(); }};},0);
   }
   if(closed.length){
     html.push('<h2>Decided</h2>');
     for(const v of closed){
       const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id}); const s=(st||[])[0]||{};
-      html.push(`<div class="card"><h3 style="color:var(--muted)">${esc(v.title)}
-        ${v.result==='passed'?'<span class="pill green">PASSED</span>':'<span class="pill red">FAILED</span>'}</h3>
+      html.push(`<div class="card" id="m-${v.id}"><h3 style="color:var(--muted)">${esc(v.title)}
+        ${v.result==='passed'?'<span class="pill green">PASSED</span>':'<span class="pill red">FAILED</span>'}
+        <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button>
+        ${me.is_commissioner?`<button class="cdel" style="float:right" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button>`:''}</h3>
         <div class="meta">${s.yes??'?'} yes · ${s.no??'?'} no · ${s.abstain??'?'} abstain · needed ${v.majority==='structural'?7:6}</div></div>`);
     }
   }
   m.innerHTML=html.join('');
+  focusTarget('m');
   refreshMe().then(()=>{drawTabs();voteGate();});
 }
 async function cast(mid,choice){
@@ -479,9 +534,11 @@ async function rRules(m){
   m.innerHTML = `<h2>The Constitution</h2>
     <div class="card"><div class="rules-toc">${rules.map(r=>`<a href="#rules" onclick="document.getElementById('r-${r.id}').scrollIntoView({behavior:'smooth'})">§${r.id} ${esc(r.title)}</a>`).join('')}</div>
     <div class="meta">Amendments happen through §12 — Proposals → Vote. PDF era (2022–2025) archived with the commissioner.</div></div>`
-    + rules.map(r=>`<div class="card" id="r-${r.id}"><h3>§${r.id} · ${esc(r.title)}</h3>
+    + rules.map(r=>`<div class="card" id="r-${r.id}"><h3>§${r.id} · ${esc(r.title)}
+      <button class="likebtn" style="float:right" onclick="copyLink('rules/${r.id}')" title="Copy link">🔗</button></h3>
       <div class="body-md">${md(r.body_md)}</div>
       ${r.amended_by?`<div class="amend">Amended by Measure #${r.amended_by}</div>`:''}</div>`).join('');
+  focusTarget('r');
 }
 
 // ---------- HISTORY ----------
