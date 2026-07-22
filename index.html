@@ -44,6 +44,13 @@
   .btn.ghost{background:none;color:var(--ink2)}
   .btn.sm{padding:4px 10px;font-size:12px;font-weight:600}
   .btn:disabled{opacity:.45;cursor:default}
+  .btn.danger{background:var(--bad);border-color:var(--bad);color:#2a0808}
+  .pickrow{display:flex;gap:8px;margin-top:12px}
+  .pick{flex:1;text-align:left;background:var(--surface2);border:1px solid var(--ring);border-radius:12px;padding:10px 12px;cursor:pointer;color:var(--ink2);font-family:inherit}
+  .pick b{display:block;color:var(--ink);font-size:13.5px}
+  .pick span{font-size:11px;color:var(--muted);line-height:1.35;display:block;margin-top:2px}
+  .pick.on{border-color:var(--gold);background:rgba(201,133,0,.12)}
+  .pick.on b{color:var(--goldbright)}
   input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:14px;font-family:inherit;margin-top:8px}
   textarea{min-height:80px;resize:vertical}
   label{font-size:12px;color:var(--muted);display:block;margin-top:12px}
@@ -172,11 +179,35 @@ function focusTarget(prefix){
 }
 function copyLink(path){
   const u=location.origin+location.pathname+'#'+path;
-  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copied 🔗'),()=>prompt('Copy this link:',u));
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Link copied 🔗'),()=>showLink(u));
 }
-function toast(t){ const d=document.createElement('div'); d.textContent=t;
+function toast(t,ms){ const d=document.createElement('div'); d.textContent=t;
   d.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:8px 18px;font-size:13px;z-index:99;color:var(--ink)';
-  document.body.appendChild(d); setTimeout(()=>d.remove(),1800); }
+  document.body.appendChild(d); setTimeout(()=>d.remove(),ms||1800); }
+
+// ---------- integrated dialogs (no browser popups) ----------
+let _confirmResolve=null;
+function wardConfirm(o){
+  return new Promise(res=>{
+    _confirmResolve=res;
+    $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)_resolveConfirm(false)"><div class="inner"><div class="modal-card">
+      <h3>${o.title}</h3>
+      ${o.body?`<div class="body-md" style="margin-top:6px">${o.body}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn ${o.okClass||'primary'}" onclick="_resolveConfirm(true)">${o.ok||'Confirm'}</button>
+        <button class="btn ghost" onclick="_resolveConfirm(false)">${o.cancel||'Cancel'}</button>
+      </div></div></div></div>`;
+  });
+}
+function _resolveConfirm(v){ $('modal').innerHTML=''; const r=_confirmResolve; _confirmResolve=null; if(r) r(v); }
+function showLink(u){
+  $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
+    <h3>Copy this link</h3>
+    <input id="lk-in" readonly value="${u}" onclick="this.select()">
+    <div style="margin-top:14px"><button class="btn primary" onclick="closeLogin()">Done</button></div>
+  </div></div></div>`;
+  setTimeout(()=>{const i=$('lk-in'); i.focus(); i.select();},50);
+}
 
 async function boot(){
   parseHash();
@@ -466,27 +497,47 @@ async function postCmt(type,id){
 async function delCmt(id){ await SB.from('ward_comments').delete().eq('id',id); render(); }
 function toggleSub(pid){ const b=$('subbox-'+pid); b.style.display = b.style.display==='none'?'block':'none'; if(b.style.display==='block') $('sub-'+pid).focus(); }
 async function delProp(id){
-  if(!confirm('Delete this proposal — thread, likes, versions, everything? This is permanent.')) return;
+  if(!await wardConfirm({title:'Delete this proposal?', body:'Thread, blessings, versions — everything goes. This is permanent.', ok:'Delete forever', okClass:'danger'})) return;
   const {error} = await SB.rpc('ward_delete_proposal',{pid:id});
-  if(error) alert(error.message); else toast('Proposal deleted');
+  if(error) toast(error.message,3500); else toast('Proposal deleted');
   render();
 }
 async function delMeasure(id){
-  if(!confirm('Delete this vote entirely — ballots, discussion, result? Its source proposal reopens. Permanent.')) return;
+  if(!await wardConfirm({title:'Delete this vote?', body:'Ballots, discussion, result — all of it. Its source proposal reopens. Permanent.', ok:'Delete forever', okClass:'danger'})) return;
   const {error} = await SB.rpc('ward_delete_measure',{mid:id});
-  if(error) alert(error.message); else toast('Vote deleted');
+  if(error) toast(error.message,3500); else toast('Vote deleted');
   render();
 }
 async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
-async function promote(id){
+let PMAJ='standard';
+function promote(id){
+  PMAJ='standard';
+  $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
+    <h3>Send to a sustaining vote</h3>
+    <div class="meta" style="margin-top:4px">What kind of matter is this? It sets the bar.</div>
+    <div class="pickrow">
+      <button class="pick on" id="pk-standard" onclick="pickMaj('standard')"><b>Regular rule</b><span>${TH.regular_needed} of ${TH.member_count} to sustain</span></button>
+      <button class="pick" id="pk-structural" onclick="pickMaj('structural')"><b>Sacred matter</b><span>${TH.sacred_needed} of ${TH.member_count} — money, punishments, membership, Commandment X</span></button>
+    </div>
+    <label>Voting window (days)</label>
+    <input id="pm-days" type="number" min="1" max="30" value="7">
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn gold" onclick="doPromote(${id})">Open the vote</button>
+      <button class="btn ghost" onclick="closeLogin()">Cancel</button>
+    </div>
+    <div id="pm-msg"></div>
+  </div></div></div>`;
+}
+function pickMaj(v){ PMAJ=v; $('pk-standard').classList.toggle('on',v==='standard'); $('pk-structural').classList.toggle('on',v==='structural'); }
+async function doPromote(id){
+  const days = Math.max(1, Math.min(30, parseInt($('pm-days').value,10)||7));
   const {data:p} = await SB.from('ward_proposals').select('*').eq('id',id).single();
-  const maj = confirm(`Is this a SACRED MATTER? (money, punishments, membership, or Commandment X itself — needs ${TH.sacred_needed} of ${TH.member_count} to sustain)\nOK = sacred matter · Cancel = regular rule (${TH.regular_needed} of ${TH.member_count})`) ? 'structural':'standard';
-  const days = parseInt(prompt('Voting window in days (default 7):','7')||'7',10);
   const {data:mrow,error} = await SB.from('ward_measures').insert({
-    title:p.title, body:p.body, majority:maj, source_proposal_id:id, created_by:me.email,
+    title:p.title, body:p.body, majority:PMAJ, source_proposal_id:id, created_by:me.email,
     closes_at:new Date(Date.now()+days*864e5).toISOString()}).select().single();
-  if(error){ alert(error.message); return; }
+  if(error){ $('pm-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
   await SB.from('ward_proposals').update({status:'promoted',measure_id:mrow.id}).eq('id',id);
+  closeLogin(); toast('The vote is open 🙌');
   render();
 }
 
@@ -564,7 +615,7 @@ async function rMeasurePage(m, id){
 }
 async function cast(mid,choice){
   const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice});
-  if(error){ alert(error.message); return; }
+  if(error){ toast(error.message,3500); return; }
   await refreshMe();
   const next = pendingVotes[0];
   if(next){ toast('Recorded. Next vote →'); TAB='vote'; TARGET=String(next.id); history.replaceState(null,'','#vote/'+next.id); }
@@ -572,9 +623,10 @@ async function cast(mid,choice){
   render();
 }
 async function closeMeasure(mid){
-  if(!confirm('Close this vote and compute the result?')) return;
+  if(!await wardConfirm({title:'Close this vote?', body:'The result computes now, and ballots are final.', ok:'Close & compute', okClass:'gold'})) return;
   const {data,error} = await SB.rpc('ward_close_measure',{mid});
-  if(error) alert(error.message); else alert('Result: '+data);
+  if(error) toast(error.message,3500);
+  else toast(data==='passed'?'SUSTAINED 🙌':'NOT SUSTAINED 👎',3000);
   render();
 }
 
