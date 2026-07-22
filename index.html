@@ -85,6 +85,9 @@
   .likebtn{background:none;border:1px solid var(--ring);border-radius:999px;color:var(--ink2);font-size:12px;padding:3px 11px;cursor:pointer}
   .likebtn.liked{color:var(--goldbright);border-color:rgba(201,133,0,.5);background:rgba(201,133,0,.1)}
   .thread{margin-top:12px;border-top:1px solid var(--grid);padding-top:10px}
+  .prop{margin-top:10px;padding:12px 12px 10px;border:1px solid var(--grid);border-radius:12px;background:var(--surface2)}
+  .prop .ptext{font-size:14px;font-weight:700;color:var(--ink)}
+  .prop .thread{border-top:1px solid var(--grid)}
   .threadlbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;font-weight:700}
   .cmt{padding:7px 0;font-size:13px;color:var(--ink2);border-bottom:1px solid var(--grid)}
   .cmt:last-child{border:none}
@@ -404,7 +407,7 @@ const TOUR=[
   {i:'⛪',t:'Welcome to the 69th Ward',b:`This is the league's home — <b>the rules, the votes, the money, and the history</b>, all in one place.<br><br>You're signed in, and you'll stay signed in on this device. <b>Tip:</b> hit your browser's share menu and <b>Add to Home Screen</b> — it works like an app.`},
   {i:'🏠',t:'Home',b:`Right now, Home shows the <b>draft countdown</b> and Champions Row. Once the season starts it becomes <b>standings and who owes what</b>.`},
   {i:'🎲',t:'The Draft Derby',b:`Draft order isn't pulled from a hat — it plays out <b>live, every night at 6 PM</b>. Everyone collects random points; down the stretch the lowest total locks into the worst open pick, night by night, until a head-to-head finale for pick #1 two days before the draft.<br><br>It's provably fair — the Derby page can re-verify every roll in your own browser.`},
-  {i:'🙏',t:'Proposals',b:`Want a rule changed? <b>Propose it — make your case.</b> When <b>2 or more</b> league mates offer their blessing, it's eligible for a vote. You can discuss any proposal or post your own version of it.<br><br>Only the commissioner sends things to an official vote.`},
+  {i:'🙏',t:'Proposals',b:`Got something to hash out? <b>Open a topic</b> — punishments, rule tweaks, whatever — and stack <b>proposals</b> inside it, side by side. <b>Bless</b> the ones you'd support, as many as you like; <b>2+ blessings</b> makes a proposal vote-eligible. Each proposal has its own discussion.<br><br>Only the commissioner sends one to an official vote.`},
   {i:'🗳️',t:'Votes',b:`Rule changes are decided by everyone. You'll <b>Sustain 🙌 or Oppose 👎</b> — ballots are secret until the vote closes; who has voted is public. Some votes are <b>ranked-choice</b>: tap the options in your order of preference.<br><br><b>Heads up:</b> when a vote is open, the app takes you straight to it when you arrive, and the Vote tab glows gold until your ballot is in. Democracy first.`},
   {i:'📜',t:'Commandments & Church History',b:`The rulebook lives under <b>Commandments</b> — ten of them, everything from scoring to money in plain words. <b>Church History</b> keeps every season: champions, standings, and 🍆 holders.<br><br>That's the tour. Welcome aboard.`},
 ];
@@ -471,55 +474,97 @@ async function rHome(m){
 }
 
 // ---------- PROPOSALS ----------
-async function rProposals(m){
-  if(!me){ m.innerHTML=authBox(); return; }
-  const [{data:props},{data:likes},{data:cmts}] = await Promise.all([
-    SB.from('ward_proposals').select('*').order('created_at',{ascending:true}),
-    SB.from('ward_proposal_likes').select('*'),
-    SB.from('ward_comments').select('*').eq('target_type','proposal').order('created_at'),
-  ]);
-  const likeCt = id => (likes||[]).filter(l=>l.proposal_id===id);
-  const html = [`<h2>Proposals</h2>
-    <div class="card"><h3>Propose something</h3>
-    <div class="meta">One idea per proposal — they all stand side by side, and you can bless as many as you like. 2+ blessings makes one vote-eligible; the commissioner sends it to an official vote (Commandment X).</div>
-    <input id="np-t" placeholder="Your proposal — e.g. Bring back the Milk Mile" maxlength="140">
-    <textarea id="np-b" placeholder="Details — optional, make your case…"></textarea>
-    <div style="margin-top:10px"><button class="btn primary" onclick="newProp()">🙏 Propose it</button></div><div id="np-msg"></div></div>`];
-  const open=(props||[]).filter(p=>p.status==='open'), done=(props||[]).filter(p=>p.status!=='open').reverse();
-  if(!open.length) html.push('<div class="meta" style="padding:8px 2px">No open proposals. The floor is yours.</div>');
-  for(const p of open){
-    const pl=likeCt(p.id), iLike=pl.some(l=>l.email===me.email);
-    const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
-    html.push(`<div class="card" id="p-${p.id}"><h3>${esc(p.title)}${pl.length>=2?'<span class="pill blue">Vote-eligible</span>':''}</h3>
-      <div class="meta">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)} · 🙏 ${pl.length}</div>
-      ${p.body?`<div class="body-md">${md(p.body)}</div>`:''}
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="bless${iLike?' given':''}" onclick="likeProp(${p.id},${iLike})">🙏 ${iLike?'Blessing offered':'Offer my blessing'} · ${pl.length}</button>
-        <button class="likebtn" data-st="Proposal: ${esc(p.title)}" onclick="shareLink(this,'proposals/${p.id}')" title="Share link">🔗</button>
-        ${me.is_commissioner?`<button class="btn sm gold" onclick="promote(${p.id})">Send to vote →</button>
-        <button class="btn sm ghost" onclick="archiveProp(${p.id})">Archive</button>
-        <button class="btn sm ghost" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}
-      </div>
-      ${pl.length?`<div class="chips">blessed by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
+let OPENCMTS=new Set();
+function toggleCmts(pid){
+  OPENCMTS.has(pid)?OPENCMTS.delete(pid):OPENCMTS.add(pid);
+  const el=$('pc-'+pid); if(el) el.style.display=OPENCMTS.has(pid)?'block':'none';
+  if(OPENCMTS.has(pid)){ const i=$('cmt-proposal-'+pid); if(i) i.focus(); }
+}
+function propBlock(p,likes,cmts){
+  const pl=(likes||[]).filter(l=>l.proposal_id===p.id), iLike=pl.some(l=>l.email===me.email);
+  const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
+  const openC=OPENCMTS.has(p.id);
+  return `<div class="prop" id="pp-${p.id}">
+    <div class="ptext">${esc(p.title)}${pl.length>=2&&p.status==='open'?'<span class="pill blue">Vote-eligible</span>':''}${p.status==='promoted'?`<span class="pill gold">At vote${p.measure_id?` → <a href="#vote/${p.measure_id}" style="color:inherit">#${p.measure_id}</a>`:''}</span>`:''}</div>
+    ${p.body?`<div class="body-md">${md(p.body)}</div>`:''}
+    <div class="meta" style="margin-top:2px">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)}</div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="bless${iLike?' given':''}" onclick="likeProp(${p.id},${iLike})">🙏 ${iLike?'Blessed':'Bless'} · ${pl.length}</button>
+      <button class="likebtn" onclick="toggleCmts(${p.id})">💬 ${pcmts.length}</button>
+      ${me.is_commissioner?`${p.status==='open'?`<button class="btn sm gold" onclick="promote(${p.id})">Send to vote →</button>`:''}
+      <button class="btn sm ghost" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}
+    </div>
+    ${pl.length?`<div class="chips">blessed by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
+    <div id="pc-${p.id}" style="display:${openC?'block':'none'}">
       <div class="thread"><span class="threadlbl">Discussion</span>
         ${pcmts.map(c=>cmtHtml(c)).join('')}
         <div class="composer">
           <input id="cmt-proposal-${p.id}" placeholder="Say something…" onkeydown="if(event.key==='Enter')postCmt('proposal',${p.id})">
           <button class="btn sm primary" onclick="postCmt('proposal',${p.id})">Post</button>
         </div>
-      </div></div>`);
+      </div>
+    </div>
+  </div>`;
+}
+async function rProposals(m){
+  if(!me){ m.innerHTML=authBox(); return; }
+  const [{data:topics},{data:props},{data:likes},{data:cmts}] = await Promise.all([
+    SB.from('ward_topics').select('*').order('created_at',{ascending:true}),
+    SB.from('ward_proposals').select('*').order('created_at',{ascending:true}),
+    SB.from('ward_proposal_likes').select('*'),
+    SB.from('ward_comments').select('*').eq('target_type','proposal').order('created_at'),
+  ]);
+  const html = [`<h2>Proposals</h2>
+    <div class="card"><h3>Start a topic</h3>
+    <div class="meta">Open the floor on something — punishments, rule changes, anything. Proposals stack inside the topic; bless the ones you'd support (as many as you like). 2+ blessings makes one vote-eligible.</div>
+    <input id="tp-t" placeholder="Topic — e.g. 2026 punishment options" maxlength="140">
+    <textarea id="tp-b" placeholder="Set the stage (optional)…"></textarea>
+    <input id="tp-p" placeholder="Your first proposal (optional) — e.g. Bring back the Milk Mile" maxlength="140">
+    <div style="margin-top:10px"><button class="btn primary" onclick="newTopic()">Open the topic</button></div><div id="tp-msg"></div></div>`];
+  const openT=(topics||[]).filter(t=>t.status==='open'), doneT=(topics||[]).filter(t=>t.status!=='open').reverse();
+  if(!openT.length) html.push('<div class="meta" style="padding:8px 2px">No open topics. The floor is yours.</div>');
+  for(const t of openT){
+    const tprops=(props||[]).filter(p=>p.topic_id===t.id);
+    html.push(`<div class="card" id="p-${t.id}"><h3>${esc(t.title)}
+      <button class="likebtn" style="float:right" data-st="Topic: ${esc(t.title)}" onclick="shareLink(this,'proposals/${t.id}')" title="Share link">🔗</button></h3>
+      <div class="meta">opened by ${esc(name(t.author_email))} · ${fmtD(t.created_at)} · ${tprops.length} proposal${tprops.length===1?'':'s'}</div>
+      ${t.body?`<div class="body-md">${md(t.body)}</div>`:''}
+      <div class="composer" style="margin-top:12px">
+        <input id="ap-${t.id}" placeholder="Add a proposal…" maxlength="140" onkeydown="if(event.key==='Enter')addProp(${t.id})">
+        <button class="btn sm primary" onclick="addProp(${t.id})">🙏 Propose</button>
+      </div>
+      ${tprops.length?tprops.map(p=>propBlock(p,likes,cmts)).join(''):'<div class="meta" style="margin-top:10px">No proposals yet — add the first.</div>'}
+      ${me.is_commissioner?`<div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn sm ghost" onclick="archiveTopic(${t.id})">Archive topic</button>
+        <button class="btn sm ghost" onclick="delTopic(${t.id})" title="Delete forever">🗑 Delete topic</button>
+      </div>`:''}
+    </div>`);
   }
-  if(done.length) html.push(`<h2>Resolved</h2>`+done.map(p=>`<div class="card" id="p-${p.id}"><h3 style="color:var(--muted)">${esc(p.title)}
-    ${me.is_commissioner?`<button class="cdel" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}</h3>
-    <div class="meta">${p.status==='promoted'?`→ went to vote (<a href="#vote/${p.measure_id||''}">Measure #${p.measure_id||'?'}</a>)`:'archived'}</div></div>`).join(''));
+  if(doneT.length) html.push(`<h2>Resolved</h2>`+doneT.map(t=>`<div class="card" id="p-${t.id}"><h3 style="color:var(--muted)">${esc(t.title)}
+    ${me.is_commissioner?`<button class="cdel" onclick="delTopic(${t.id})" title="Delete forever">🗑</button>`:''}</h3>
+    <div class="meta">archived · ${(props||[]).filter(p=>p.topic_id===t.id).length} proposals</div></div>`).join(''));
   m.innerHTML = html.join('');
   focusTarget('p');
 }
-async function newProp(){
-  const t=$('np-t').value.trim(), b=$('np-b').value.trim();
-  if(t.length<3){ $('np-msg').innerHTML='<div class="err">Give it a title.</div>'; return; }
-  const {error} = await SB.from('ward_proposals').insert({author_email:me.email,title:t,body:b});
-  if(error){ $('np-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
+async function newTopic(){
+  const t=$('tp-t').value.trim(), b=$('tp-b').value.trim(), p1=$('tp-p').value.trim();
+  if(t.length<3){ $('tp-msg').innerHTML='<div class="err">Give the topic a name.</div>'; return; }
+  const {data:trow,error} = await SB.from('ward_topics').insert({title:t,body:b,author_email:me.email}).select().single();
+  if(error){ $('tp-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
+  if(p1) await SB.from('ward_proposals').insert({topic_id:trow.id,author_email:me.email,title:p1,body:''});
+  render();
+}
+async function addProp(tid){
+  const el=$('ap-'+tid); const v=el.value.trim(); if(!v) return;
+  const {error} = await SB.from('ward_proposals').insert({topic_id:tid,author_email:me.email,title:v,body:''});
+  if(error){ toast(error.message,3500); return; }
+  render();
+}
+async function archiveTopic(id){ await SB.from('ward_topics').update({status:'archived'}).eq('id',id); render(); }
+async function delTopic(id){
+  if(!await wardConfirm({title:'Delete this topic?', body:'Every proposal in it — blessings, discussions, all of it. Permanent.', ok:'Delete forever', okClass:'danger'})) return;
+  const {error} = await SB.rpc('ward_delete_topic',{tid:id});
+  if(error) toast(error.message,3500); else toast('Topic deleted');
   render();
 }
 async function likeProp(id,un){ un? await SB.from('ward_proposal_likes').delete().match({proposal_id:id,email:me.email})
@@ -547,7 +592,6 @@ async function delMeasure(id){
   if(error) toast(error.message,3500); else toast('Vote deleted');
   render();
 }
-async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
 // ---------- vote composer: drafts auto-save; publish makes them live ----------
 let MC=null, MCTIMER=null;
 async function promote(id){
