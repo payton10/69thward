@@ -33,6 +33,8 @@
   nav.sitetabs{display:flex; gap:4px; margin:12px 0 8px; border-bottom:1px solid var(--grid); padding-bottom:10px; flex-wrap:wrap;}
   .stab{font-size:13px; color:var(--muted); padding:7px 13px; border-radius:999px; border:1px solid transparent;}
   .stab.on{color:var(--ink); background:var(--surface); border-color:var(--ring); font-weight:700;}
+  .stab.urgent{background:var(--gold); color:#140f02; border-color:var(--gold); font-weight:800; animation:stabpulse 1.6s ease-in-out infinite;}
+  @keyframes stabpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}
   .whobtn{display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--ring); border-radius:999px; padding:5px 12px; color:var(--ink); font-size:13px; font-weight:700;}
   .whobtn .av{display:inline-flex; width:24px; height:24px; border-radius:50%; background:var(--gold); color:#140f02; font-weight:800; align-items:center; justify-content:center; font-size:12px;}
   .whobtn.cta{background:var(--accent); border-color:var(--accent); color:#fff;}
@@ -113,7 +115,7 @@
     <a class="stab" href="../#home">Home</a>
     <span class="stab on">Draft Derby</span>
     <a class="stab" href="../#proposals">Proposals</a>
-    <a class="stab" href="../#vote">Vote</a>
+    <a class="stab" id="stab-vote" href="../#vote">Vote</a>
     <a class="stab" href="../#rules">Commandments</a>
     <a class="stab" href="../#history">Church History</a>
   </nav>
@@ -188,6 +190,20 @@
       const me=(mem||[]).find(m=>m.email===uem||(m.contact_email||'').toLowerCase()===uem);
       const nm = me? me.name : 'You';
       who.innerHTML = `<a class="whobtn" href="../#home"><span class="av">${nm[0]}</span>${nm}</a>`;
+      if(me){  // live vote badge — same signal as the hub's gold Vote tab
+        const [{data:open},{data:mine}] = await Promise.all([
+          SBW.from('ward_measures').select('id').eq('status','open'),
+          SBW.from('ward_ballots').select('measure_id'),
+        ]);
+        const voted = new Set((mine||[]).map(b=>b.measure_id));
+        const pending = (open||[]).filter(m=>!voted.has(m.id));
+        const sv = document.getElementById('stab-vote');
+        if(sv && pending.length){
+          sv.classList.add('urgent');
+          sv.textContent = `🗳️ Vote · ${pending.length}`;
+          sv.href = '../#vote/'+pending[0].id;
+        }
+      }
     } else {
       who.innerHTML = `<a class="whobtn cta" href="../?signin=1#home">Sign in</a>`;
     }

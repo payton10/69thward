@@ -36,6 +36,9 @@
   .tab{font-size:13px;color:var(--muted);padding:7px 13px;border-radius:999px;border:1px solid transparent;cursor:pointer;background:none}
   .tab.on{color:var(--ink);background:var(--surface);border-color:var(--ring);font-weight:700}
   .tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--goldbright);margin-left:5px;vertical-align:1px}
+  .tab.urgent{background:var(--gold);color:#140f02;border-color:var(--gold);font-weight:800;animation:tabpulse 1.6s ease-in-out infinite}
+  .tab.urgent.on{background:var(--goldbright);border-color:var(--goldbright)}
+  @keyframes tabpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.18em;color:var(--ink2);margin:24px 0 10px;font-weight:700}
   .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px;margin-bottom:12px}
   .card h3{font-size:15px;margin-bottom:4px}
@@ -177,17 +180,11 @@ const TABS = [['home','Home'],['derby','Draft Derby'],['proposals','Proposals'],
 const ROM = ['','I','II','III','IV','V','VI','VII','VIII','IX','X'];
 let TH = {member_count:12, regular_needed:7, sacred_needed:9};
 function drawTabs(){
-  $('tabs').innerHTML = TABS.filter(([k])=>k!=='derby'||new Date()<DERBY_HIDE).map(([k,l])=>k==='derby'
-    ? `<button class="tab" onclick="goDerby()">${l}</button>`
-    : `<button class="tab${TAB===k?' on':''}" onclick="go('${k}')">${l}${k==='vote'&&pendingVotes.length?'<span class=dot></span>':''}</button>`).join('');
-}
-function goDerby(){
-  if(pendingVotes.length && !(me && me.is_commissioner)){
-    const n=pendingVotes[0];
-    TAB='vote'; TARGET=String(n.id); history.replaceState(null,'','#vote/'+n.id);
-    toast('Cast your ballots first 🗳️'); render(); return;
-  }
-  location.href='derby/';
+  $('tabs').innerHTML = TABS.filter(([k])=>k!=='derby'||new Date()<DERBY_HIDE).map(([k,l])=>{
+    if(k==='derby') return `<a class="tab" href="derby/">${l}</a>`;
+    if(k==='vote'&&pendingVotes.length) return `<button class="tab urgent${TAB===k?' on':''}" onclick="go('vote')">🗳️ Vote · ${pendingVotes.length}</button>`;
+    return `<button class="tab${TAB===k?' on':''}" onclick="go('${k}')">${l}</button>`;
+  }).join('');
 }
 function go(t){ TAB=t; TARGET=null; location.hash=t; render(); }
 function parseHash(){ const p=location.hash.slice(1).split('/'); if(TABS.some(([k])=>k===p[0])){ TAB=p[0]; TARGET=p[1]||null; return true; } return false; }
@@ -302,7 +299,7 @@ async function signOut(){ await SB.auth.signOut(); location.reload(); }
 async function render(){
   drawWho();
   if(me && !me.tour_done){ $('tabs').innerHTML=''; $('overlay').innerHTML=''; renderTour(); return; }  // tour first, then the gate
-  drawTabs(); voteGate();
+  voteRedirect(); drawTabs();
   const m=$('main'); m.innerHTML='<div class="loading">Loading…</div>';
   try{
     if(TAB==='home') await rHome(m);
@@ -408,7 +405,7 @@ const TOUR=[
   {i:'🏠',t:'Home',b:`Right now, Home shows the <b>draft countdown</b> and Champions Row. Once the season starts it becomes <b>standings and who owes what</b>.`},
   {i:'🎲',t:'The Draft Derby',b:`Draft order isn't pulled from a hat — it plays out <b>live, every night at 6 PM</b>. Everyone collects random points; down the stretch the lowest total locks into the worst open pick, night by night, until a head-to-head finale for pick #1 two days before the draft.<br><br>It's provably fair — the Derby page can re-verify every roll in your own browser.`},
   {i:'🙏',t:'Proposals',b:`Want a rule changed? <b>Propose it — make your case.</b> When <b>2 or more</b> league mates offer their blessing, it's eligible for a vote. You can discuss any proposal or post your own version of it.<br><br>Only the commissioner sends things to an official vote.`},
-  {i:'🗳️',t:'Votes',b:`Rule changes are decided by everyone. You'll <b>Sustain 🙌 or Oppose 👎</b> — ballots are secret until the vote closes; who has voted is public. Some votes are <b>ranked-choice</b>: tap the options in your order of preference.<br><br><b>Heads up:</b> while a vote is open, the app locks everything else until you've cast your ballot. Democracy first.`},
+  {i:'🗳️',t:'Votes',b:`Rule changes are decided by everyone. You'll <b>Sustain 🙌 or Oppose 👎</b> — ballots are secret until the vote closes; who has voted is public. Some votes are <b>ranked-choice</b>: tap the options in your order of preference.<br><br><b>Heads up:</b> when a vote is open, the app takes you straight to it when you arrive, and the Vote tab glows gold until your ballot is in. Democracy first.`},
   {i:'📜',t:'Commandments & Church History',b:`The rulebook lives under <b>Commandments</b> — ten of them, everything from scoring to money in plain words. <b>Church History</b> keeps every season: champions, standings, and 🍆 holders.<br><br>That's the tour. Welcome aboard.`},
 ];
 function renderTour(){
@@ -430,17 +427,15 @@ async function finishTour(){
   render();
 }
 
-// ---------- forced-vote gate: nothing works until every ballot is cast ----------
-function voteGate(){
-  $('overlay').innerHTML='';
-  if(me && me.is_commissioner) return;  // commissioner is SOFT-gated: reminder banners + Vote dot, never locked (he administers mid-vote)
-  if(me && pendingVotes.length){
-    const onPending = TAB==='vote' && TARGET && pendingVotes.some(v=>String(v.id)===String(TARGET));
-    if(!onPending){
-      TAB='vote'; TARGET=String(pendingVotes[0].id);
-      history.replaceState(null,'','#vote/'+pendingVotes[0].id);
-      drawTabs();
-    }
+// ---------- vote redirect: on arrival (or first sign-in), land on the first open ballot — ONCE; browsing stays free ----------
+let REDIRECTED=false;
+function voteRedirect(){
+  if(REDIRECTED || !me || !pendingVotes.length) return;
+  REDIRECTED=true;
+  const onPending = TAB==='vote' && TARGET && pendingVotes.some(v=>String(v.id)===String(TARGET));
+  if(!onPending){
+    TAB='vote'; TARGET=String(pendingVotes[0].id);
+    history.replaceState(null,'','#vote/'+pendingVotes[0].id);
   }
 }
 
@@ -772,12 +767,11 @@ async function rMeasurePage(m, id){
   }
   const s=(st||[])[0]||{}; const b=(mine||[])[0];
   const need = v.majority==='structural'?TH.sacred_needed:TH.regular_needed;
-  const gated = pendingVotes.length>0 && !me.is_commissioner;
   const ranked = v.kind==='ranked';
   if(ranked && v.status==='open') RANKSEL = (b&&Array.isArray(b.ranking))?b.ranking.slice():[];
   m.innerHTML = `
-    ${gated?`<div class="gatebar">🗳️ The Ward requires your ballot${pendingVotes.length>1?` — ${pendingVotes.length} votes await`:''}. Everything else unlocks when you’ve voted.</div>`
-           :`<button class="backbtn" onclick="go('vote')">← All votes</button>${me.is_commissioner&&pendingVotes.length?`<div class="gatebar">🗳️ You still have ${pendingVotes.length} ballot${pendingVotes.length>1?'s':''} of your own to cast.</div>`:''}`}
+    <button class="backbtn" onclick="go('vote')">← All votes</button>
+    ${pendingVotes.length?`<div class="gatebar">🗳️ ${pendingVotes.length} open ballot${pendingVotes.length>1?'s':''} still need${pendingVotes.length>1?'':'s'} your Sustain or Oppose.</div>`:''}
     <div class="card" id="m-${v.id}">
       <h3>${esc(v.title)}${majPill(v)}
         <button class="likebtn" style="float:right" data-st="${v.status==='open'?'Vote':'Vote result'}: ${esc(v.title)}" onclick="shareLink(this,'vote/${v.id}')" title="Share link">🔗</button></h3>
