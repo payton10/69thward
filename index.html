@@ -159,7 +159,7 @@ const SEASON_START = new Date('2026-09-09T00:00:00-06:00');
 const name = e => (members.find(m=>m.email===e)||{}).name || (e||'').split('@')[0];
 
 // ---------- boot ----------
-const TABS = [['home','Home'],['derby','Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Rulebook'],['history','Church History']];
+const TABS = [['home','Home'],['derby','Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
 const ROM = ['','I','II','III','IV','V','VI','VII','VIII','IX','X'];
 let TH = {member_count:12, regular_needed:7, sacred_needed:9};
 function drawTabs(){
@@ -672,6 +672,7 @@ async function rMeasurePage(m, id){
       <div class="chips">${s.voted_count||0}/${s.member_count||10} ballots in${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
       ${v.status==='open'&&!ranked&&s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Sustained</div><div><b style="color:var(--bad)">${s.no}</b>Opposed</div></div>`:''}
       ${me.is_commissioner?`<div style="margin-top:12px">${v.status==='open'?`<button class="btn sm gold" onclick="closeMeasure(${v.id})">Close the vote</button> `:''}
+        <button class="btn sm" onclick="editMeasure(${v.id})">✏️ Edit</button>
         <button class="btn sm ghost" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button></div>`:''}
       <div class="thread"><span class="threadlbl">Discussion</span>
         ${(cmts||[]).map(c=>cmtHtml(c)).join('')}
@@ -714,6 +715,29 @@ async function castRanked(mid){
   const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice:null,ranking:RANKSEL});
   if(error){ toast(error.message,3500); return; }
   advanceAfterCast('Ballot cast 🗳️');
+}
+async function editMeasure(id){
+  const {data:v} = await SB.from('ward_measures').select('*').eq('id',id).single();
+  if(!v){ toast('That vote is gone.'); return; }
+  $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
+    <h3>Edit the vote</h3>
+    <div class="meta" style="margin-top:4px">Title and notes only — the options, ballots, and clock stay as they are.</div>
+    <label>Title</label><input id="em-title" value="${esc(v.title)}">
+    <label>Details</label><textarea id="em-body">${esc(v.body)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn gold" onclick="doEditMeasure(${id})">Save</button>
+      <button class="btn ghost" onclick="closeLogin()">Cancel</button>
+    </div>
+    <div id="em-msg"></div>
+  </div></div></div>`;
+}
+async function doEditMeasure(id){
+  const t=$('em-title').value.trim();
+  if(!t){ $('em-msg').innerHTML='<div class="err">Give it a title.</div>'; return; }
+  const {error} = await SB.rpc('ward_edit_measure',{mid:id,new_title:t,new_body:$('em-body').value});
+  if(error){ $('em-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
+  closeLogin(); toast('Vote updated ✏️');
+  render();
 }
 async function closeMeasure(mid){
   if(!await wardConfirm({title:'Close this vote?', body:'The result computes now, and ballots are final.', ok:'Close & compute', okClass:'gold'})) return;
