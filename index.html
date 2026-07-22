@@ -141,9 +141,15 @@ function go(t){ TAB=t; TARGET=null; location.hash=t; render(); }
 function parseHash(){ const p=location.hash.slice(1).split('/'); if(TABS.some(([k])=>k===p[0])){ TAB=p[0]; TARGET=p[1]||null; return true; } return false; }
 window.addEventListener('hashchange',()=>{ if(parseHash()) render(); });
 function focusTarget(prefix){
-  if(!TARGET) return; const el=$(prefix+'-'+TARGET);
-  if(el){ setTimeout(()=>{ el.scrollIntoView({behavior:'smooth',block:'start'}); el.style.outline='2px solid var(--goldbright)'; el.style.outlineOffset='3px'; setTimeout(()=>el.style.outline='',2600); },80); }
-  TARGET=null;
+  if(!TARGET) return; const t=TARGET;
+  setTimeout(()=>{
+    const el=$(prefix+'-'+t);
+    if(!el || !el.isConnected) return;   // a competing render replaced the DOM; the next pass will land it
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+    el.style.outline='2px solid var(--goldbright)'; el.style.outlineOffset='3px';
+    setTimeout(()=>el.style.outline='',2600);
+    TARGET=null;
+  },150);
 }
 function copyLink(path){
   const u=location.origin+location.pathname+'#'+path;
