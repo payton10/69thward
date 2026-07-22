@@ -12,7 +12,9 @@
     "Duke",
     "Jackson",
     "Kirk",
-    "Bryson"
+    "Bryson",
+    "Luke",
+    "Cam"
   ],
   "launch_date": "2026-07-27",
   "draft_date": "2026-09-02",
@@ -20,7 +22,7 @@
   "drop_hour_local": 18,
   "tz": "America/Denver",
   "surge_days": 10,
-  "lock_days": 8,
+  "lock_days": 10,
   "events_per_week": 2,
   "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af",
   "revealed_seed": null,

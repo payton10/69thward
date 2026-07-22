@@ -108,7 +108,7 @@
     <a class="stab" href="../#proposals">Proposals</a>
     <a class="stab" href="../#vote">Vote</a>
     <a class="stab" href="../#rules">Rulebook</a>
-    <a class="stab" href="../#history">History</a>
+    <a class="stab" href="../#history">Church History</a>
   </nav>
   <header class="hero">
     <div class="kicker">The Draft Order · Decided Live</div>
@@ -124,7 +124,7 @@
     <div class="card rules">
       <ul>
         <li><b>Every night at 6:00 PM</b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
-        <li><b>Lock Week:</b> each night, the lowest total gets locked into the worst open draft slot. Pick 10 goes first. Then 9. Then you.</li>
+        <li><b>Lock Week:</b> each night, the lowest total gets locked into the worst open draft slot. Pick 12 goes first. Then 11. Then you.</li>
         <li><b>The Finale:</b> the last two standing roll head-to-head for the #1 pick — two days before the draft.</li>
         <li><b>Events</b> hit twice a week. The can of surströmming opens for someone. The beer mile giveth.</li>
         <li>Most points = first pick. No re-rolls. No mercy. Provably rigged-proof (see below).</li>
@@ -346,7 +346,7 @@ async function verifySeason(seed){
   }
   // 3) replay
   const totals = {}, bestDay = {}, locked = {}; MANAGERS.forEach(m => {totals[m]=0; bestDay[m]=0;});
-  const openPicks = [10,9,8,7,6,5,4,3];
+  const openPicks = []; for(let p=MANAGERS.length; p>=3; p--) openPicks.push(p);
   let prev = null, mismatches = 0, checked = 0;
   const hist = {}; DATA.fullHistory.forEach(x => hist[x.date] = x);
   for (const [dstr, phase] of phaseDays){

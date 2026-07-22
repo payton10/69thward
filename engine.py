@@ -89,7 +89,7 @@ def simulate(seed, as_of):
     totals = {m: 0 for m in managers}
     best_day = {m: 0 for m in managers}
     locked = {}            # name -> pick
-    open_picks = list(range(10, 2, -1))   # 10,9,...,3 (finale settles 2 and 1)
+    open_picks = list(range(len(managers), 2, -1))   # N,N-1,...,3 (finale settles 2 and 1)
     prev_day_totals = None
     drops = []
 
@@ -224,7 +224,7 @@ def selftest():
     sim2 = simulate(seed, marks["finale"])
     assert json.dumps(sim, default=str) == json.dumps(sim2, default=str), "non-deterministic!"
     picks = sorted(sim["locked"].values())
-    assert picks == list(range(1, 11)), f"picks wrong: {picks}"
+    assert picks == list(range(1, len(CFG["managers"]) + 1)), f"picks wrong: {picks}"
     lock_nights = [x for x in sim["drops"] if x["phase"] == "lock" and x["locks"]]
     assert len(lock_nights) == CFG["lock_days"], f"lock nights {len(lock_nights)}"
     assert sim["drops"][-1]["phase"] == "finale" and len(sim["drops"][-1]["locks"]) == 2

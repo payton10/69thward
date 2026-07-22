@@ -115,6 +115,7 @@
   .rules-toc{font-size:13px;column-count:2;margin-bottom:6px}
   .rules-toc a{display:block;padding:2px 0;color:var(--ink2)}
   .amend{font-size:11px;color:var(--goldbright);margin-top:6px}
+  .tagline{font-size:13.5px;color:var(--goldbright);font-style:italic;margin-top:3px}
   footer{margin-top:34px;text-align:center;font-size:11px;color:var(--muted);border-top:1px solid var(--grid);padding-top:14px}
   .loading{color:var(--muted);font-size:13px;padding:20px;text-align:center}
 </style>
@@ -147,7 +148,9 @@ const SEASON_START = new Date('2026-09-09T00:00:00-06:00');
 const name = e => (members.find(m=>m.email===e)||{}).name || (e||'').split('@')[0];
 
 // ---------- boot ----------
-const TABS = [['home','Home'],['derby','Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Rulebook'],['history','History']];
+const TABS = [['home','Home'],['derby','Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Rulebook'],['history','Church History']];
+const ROM = ['','I','II','III','IV','V','VI','VII','VIII','IX','X'];
+let TH = {member_count:12, regular_needed:7, sacred_needed:9};
 function drawTabs(){
   $('tabs').innerHTML = TABS.map(([k,l])=>k==='derby'
     ? `<a class="tab" href="derby/">Derby 🎲</a>`
@@ -191,6 +194,7 @@ async function boot(){
 }
 async function refreshMe(){
   me=null; members=[]; pendingVotes=[];
+  try{ const {data:th} = await SB.rpc('ward_thresholds'); if(th&&th[0]) TH=th[0]; }catch(e){}
   if(!session) return;
   const {data:mem} = await SB.from('ward_members').select('*');
   members = mem||[];
@@ -389,7 +393,7 @@ async function rProposals(m){
   const likeCt = id => (likes||[]).filter(l=>l.proposal_id===id);
   const html = [`<h2>Proposals</h2>
     <div class="card"><h3>Start a proposal</h3>
-    <div class="meta">Bring your idea before the Ward. Two blessings makes it vote-eligible; anyone can suggest an alternate version; the commissioner calls the official vote (§12).</div>
+    <div class="meta">Bring your idea before the Ward. Two blessings makes it vote-eligible; anyone can suggest an alternate version; the commissioner calls the official vote (Commandment X).</div>
     <input id="np-t" placeholder="Title — e.g. Add a second FLEX" maxlength="140">
     <textarea id="np-b" placeholder="Make your case…"></textarea>
     <div style="margin-top:10px"><button class="btn primary" onclick="newProp()">Propose it</button></div><div id="np-msg"></div></div>`];
@@ -476,7 +480,7 @@ async function delMeasure(id){
 async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
 async function promote(id){
   const {data:p} = await SB.from('ward_proposals').select('*').eq('id',id).single();
-  const maj = confirm('Is this a SACRED MATTER? (money, punishments, membership, or §12 itself — needs 7 of 10 to sustain)\nOK = sacred matter (7/10) · Cancel = regular rule (6/10)') ? 'structural':'standard';
+  const maj = confirm(`Is this a SACRED MATTER? (money, punishments, membership, or Commandment X itself — needs ${TH.sacred_needed} of ${TH.member_count} to sustain)\nOK = sacred matter · Cancel = regular rule (${TH.regular_needed} of ${TH.member_count})`) ? 'structural':'standard';
   const days = parseInt(prompt('Voting window in days (default 7):','7')||'7',10);
   const {data:mrow,error} = await SB.from('ward_measures').insert({
     title:p.title, body:p.body, majority:maj, source_proposal_id:id, created_by:me.email,
@@ -487,7 +491,7 @@ async function promote(id){
 }
 
 // ---------- VOTE ----------
-const majPill = v => `<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?'Sacred matter · 7 of 10':'Regular rule · 6 of 10'}</span>`;
+const majPill = v => `<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?`Sacred matter · ${TH.sacred_needed} of ${TH.member_count}`:`Regular rule · ${TH.regular_needed} of ${TH.member_count}`}</span>`;
 const resPill = v => v.result==='passed'?'<span class="pill green">SUSTAINED</span>':'<span class="pill red">NOT SUSTAINED</span>';
 async function rVote(m){
   if(!me){ m.innerHTML=authBox(); return; }
@@ -512,7 +516,7 @@ async function rVote(m){
       const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id}); const s=(st||[])[0]||{};
       html.push(`<div class="card"><h3 style="color:var(--muted)"><a href="#vote/${v.id}" style="color:var(--muted)">${esc(v.title)}</a> ${resPill(v)}
         ${me.is_commissioner?`<button class="cdel" style="float:right" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button>`:''}</h3>
-        <div class="meta">${s.yes??'?'} sustained · ${s.no??'?'} opposed${(s.abstain||0)>0?` · ${s.abstain} abstained`:''} · needed ${v.majority==='structural'?7:6}</div></div>`);
+        <div class="meta">${s.yes??'?'} sustained · ${s.no??'?'} opposed${(s.abstain||0)>0?` · ${s.abstain} abstained`:''} · needed ${v.majority==='structural'?TH.sacred_needed:TH.regular_needed}</div></div>`);
     }
   }
   m.innerHTML=html.join('');
@@ -527,7 +531,7 @@ async function rMeasurePage(m, id){
   ]);
   if(!v){ m.innerHTML='<div class="err">That vote doesn’t exist (anymore).</div>'; return; }
   const s=(st||[])[0]||{}; const b=(mine||[])[0];
-  const need = v.majority==='structural'?7:6;
+  const need = v.majority==='structural'?TH.sacred_needed:TH.regular_needed;
   const gated = pendingVotes.length>0;
   m.innerHTML = `
     ${gated?`<div class="gatebar">🗳️ The Ward requires your ballot${pendingVotes.length>1?` — ${pendingVotes.length} votes await`:''}. Everything else unlocks when you’ve voted.</div>`
@@ -535,7 +539,7 @@ async function rMeasurePage(m, id){
     <div class="card" id="m-${v.id}">
       <h3>${esc(v.title)}${majPill(v)}
         <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button></h3>
-      <div class="meta">${v.status==='open'?`closes ${fmtD(v.closes_at)} · needs ${need} of 10 to sustain · ballots are secret until it closes`:`closed · needed ${need} of 10`}</div>
+      <div class="meta">${v.status==='open'?`closes ${fmtD(v.closes_at)} · needs ${need} of ${TH.member_count} to sustain · ballots are secret until it closes`:`closed · needed ${need} of ${TH.member_count}`}</div>
       <div class="body-md">${md(v.body)}</div>
       ${v.status==='open'?`
         <div class="voterow2">
@@ -574,15 +578,16 @@ async function closeMeasure(mid){
   render();
 }
 
-// ---------- RULEBOOK ----------
+// ---------- RULEBOOK: THE TEN COMMANDMENTS ----------
 async function rRules(m){
   const {data:rules} = await SB.from('ward_rules').select('*').order('sort');
-  if(!rules||!rules.length){ m.innerHTML='<div class="err">Rulebook unavailable.</div>'; return; }
-  m.innerHTML = `<h2>The Constitution</h2>
-    <div class="card"><div class="rules-toc">${rules.map(r=>`<a href="#rules" onclick="document.getElementById('r-${r.id}').scrollIntoView({behavior:'smooth'})">§${r.id} ${esc(r.title)}</a>`).join('')}</div>
-    <div class="meta">Amendments happen through §12 — Proposals → Vote. PDF era (2022–2025) archived with the commissioner.</div></div>`
-    + rules.map(r=>`<div class="card" id="r-${r.id}"><h3>§${r.id} · ${esc(r.title)}
+  if(!rules||!rules.length){ m.innerHTML='<div class="err">The commandments are unavailable. Pray harder.</div>'; return; }
+  m.innerHTML = `<h2>The Ten Commandments</h2>
+    <div class="card"><div class="rules-toc">${rules.map(r=>`<a href="#rules" onclick="document.getElementById('r-${r.id}').scrollIntoView({behavior:'smooth'})">${ROM[r.id]}. ${esc(r.title)}</a>`).join('')}</div>
+    <div class="meta">Handed down at the founding, amended only by the Ward (Commandment X). The PDF era (2022–2025) is archived with the commissioner.</div></div>`
+    + rules.map(r=>`<div class="card" id="r-${r.id}"><h3>${ROM[r.id]} · ${esc(r.title)}
       <button class="likebtn" style="float:right" onclick="copyLink('rules/${r.id}')" title="Copy link">🔗</button></h3>
+      ${r.tagline?`<div class="tagline">“${esc(r.tagline)}”</div>`:''}
       <div class="body-md">${md(r.body_md)}</div>
       ${r.amended_by?`<div class="amend">Amended by Measure #${r.amended_by}</div>`:''}</div>`).join('');
   focusTarget('r');
