@@ -95,6 +95,8 @@
   .cmt .meta{margin-left:6px}
   .cdel{float:right;background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0 4px;line-height:1}
   .cdel:hover{color:var(--bad)}
+  .clike{background:none;border:1px solid var(--ring);border-radius:999px;color:var(--muted);font-size:11px;padding:1px 8px;cursor:pointer}
+  .clike.on{color:var(--goldbright);border-color:rgba(201,133,0,.5);background:rgba(201,133,0,.1)}
   .composer{display:flex;gap:8px;margin-top:10px;align-items:stretch}
   .composer input{margin-top:0;flex:1}
   .composer .btn{white-space:nowrap}
@@ -321,11 +323,19 @@ function toggleMenu(){ menuOpen=!menuOpen; drawWho(); }
 async function signOut(){ try{ localStorage.removeItem('wardShell'); }catch(e){} await SB.auth.signOut(); location.reload(); }
 
 // ---------- render root ----------
+// Same-view re-renders (likes, comments, blessings, ballots) keep the old DOM on screen
+// until the new HTML is ready, then restore the scroll position — no height collapse,
+// no jump. The "Loading…" state only appears when the view actually changes.
+let LASTVIEW=null;
 async function render(){
   drawWho();
   if(me && !me.tour_done){ $('tabs').innerHTML=''; $('overlay').innerHTML=''; renderTour(); return; }  // tour first, then the gate
   voteRedirect(); drawTabs();
-  const m=$('main'); m.innerHTML='<div class="loading">Loading…</div>';
+  const m=$('main');
+  const view = TAB+'/'+(TARGET||'');
+  const sameView = view===LASTVIEW;
+  const y = window.scrollY;
+  if(!sameView) m.innerHTML='<div class="loading">Loading…</div>';
   try{
     if(TAB==='home') await rHome(m);
     else if(TAB==='proposals') await rProposals(m);
@@ -333,6 +343,9 @@ async function render(){
     else if(TAB==='rules') await rRules(m);
     else if(TAB==='history') await rHistory(m);
   }catch(e){ m.innerHTML=`<div class="err">Something broke: ${esc(e.message)}</div>`; }
+  LASTVIEW=view;
+  if(sameView) window.scrollTo(0,y);
+  else if(!TARGET) window.scrollTo(0,0);
 }
 
 // ---------- auth UI (phone-first; synthetic email under the hood) ----------
@@ -502,7 +515,7 @@ function toggleCmts(pid){
   const el=$('pc-'+pid); if(el) el.style.display=OPENCMTS.has(pid)?'block':'none';
   if(OPENCMTS.has(pid)){ const i=$('cmt-proposal-'+pid); if(i) i.focus(); }
 }
-function propBlock(p,likes,cmts){
+function propBlock(p,likes,cmts,clikes){
   const pl=(likes||[]).filter(l=>l.proposal_id===p.id), iLike=pl.some(l=>l.email===me.email);
   const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
   const openC=OPENCMTS.has(p.id);
@@ -519,7 +532,7 @@ function propBlock(p,likes,cmts){
     ${pl.length?`<div class="chips">blessed by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
     <div id="pc-${p.id}" style="display:${openC?'block':'none'}">
       <div class="thread"><span class="threadlbl">Discussion</span>
-        ${pcmts.map(c=>cmtHtml(c)).join('')}
+        ${pcmts.map(c=>cmtHtml(c,clikes)).join('')}
         <div class="composer">
           <input id="cmt-proposal-${p.id}" placeholder="Say something…" onkeydown="if(event.key==='Enter')postCmt('proposal',${p.id})">
           <button class="btn sm primary" onclick="postCmt('proposal',${p.id})">Post</button>
@@ -530,11 +543,12 @@ function propBlock(p,likes,cmts){
 }
 async function rProposals(m){
   if(!me){ m.innerHTML=authBox(); return; }
-  const [{data:topics},{data:props},{data:likes},{data:cmts}] = await Promise.all([
+  const [{data:topics},{data:props},{data:likes},{data:cmts},{data:clikes}] = await Promise.all([
     SB.from('ward_topics').select('*').order('created_at',{ascending:true}),
     SB.from('ward_proposals').select('*').order('created_at',{ascending:true}),
     SB.from('ward_proposal_likes').select('*'),
     SB.from('ward_comments').select('*').eq('target_type','proposal').order('created_at'),
+    SB.from('ward_comment_likes').select('*'),
   ]);
   const html = [`<h2>Proposals</h2>
     <div class="card"><h3>Start a topic</h3>
@@ -555,7 +569,7 @@ async function rProposals(m){
         <input id="ap-${t.id}" placeholder="Add a proposal…" maxlength="140" onkeydown="if(event.key==='Enter')addProp(${t.id})">
         <button class="btn sm primary" onclick="addProp(${t.id})">🙏 Propose</button>
       </div>
-      ${tprops.length?tprops.map(p=>propBlock(p,likes,cmts)).join(''):'<div class="meta" style="margin-top:10px">No proposals yet — add the first.</div>'}
+      ${tprops.length?tprops.map(p=>propBlock(p,likes,cmts,clikes)).join(''):'<div class="meta" style="margin-top:10px">No proposals yet — add the first.</div>'}
       ${me.is_commissioner?`<div style="margin-top:12px;display:flex;gap:8px">
         <button class="btn sm ghost" onclick="archiveTopic(${t.id})">Archive topic</button>
         <button class="btn sm ghost" onclick="delTopic(${t.id})" title="Delete forever">🗑 Delete topic</button>
@@ -591,15 +605,23 @@ async function delTopic(id){
 }
 async function likeProp(id,un){ un? await SB.from('ward_proposal_likes').delete().match({proposal_id:id,email:me.email})
   : await SB.from('ward_proposal_likes').insert({proposal_id:id,email:me.email}); render(); }
-function cmtHtml(c){
+function cmtHtml(c, clikes){
   const canDel = me && (c.author_email===me.email || me.is_commissioner);
-  return `<div class="cmt">${canDel?`<button class="cdel" onclick="delCmt(${c.id})" title="Delete comment">×</button>`:''}<b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`;
+  const cl=(clikes||[]).filter(l=>l.comment_id===c.id), iL=cl.some(l=>l.email===me.email);
+  return `<div class="cmt">${canDel?`<button class="cdel" onclick="delCmt(${c.id})" title="Delete comment">×</button>`:''}<b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}
+    <div style="margin-top:4px"><button class="clike${iL?' on':''}" onclick="likeCmt(${c.id},${iL})" title="${esc(cl.map(l=>name(l.email)).join(', '))}">👍${cl.length?' '+cl.length:''}</button></div></div>`;
+}
+async function likeCmt(id,un){
+  un? await SB.from('ward_comment_likes').delete().match({comment_id:id,email:me.email})
+    : await SB.from('ward_comment_likes').insert({comment_id:id,email:me.email});
+  render();
 }
 async function postCmt(type,id){
   const el=$('cmt-'+type+'-'+id); const v=el.value.trim(); if(!v) return;
   const {error} = await SB.from('ward_comments').insert({target_type:type,target_id:id,author_email:me.email,body:v});
   if(error){ toast(error.message); return; }
-  render();
+  await render();
+  const el2=$('cmt-'+type+'-'+id); if(el2) el2.focus({preventScroll:true});
 }
 async function delCmt(id){ await SB.from('ward_comments').delete().eq('id',id); render(); }
 async function delProp(id){
@@ -817,11 +839,12 @@ async function rVote(m){
   refreshMe().then(()=>{drawTabs();});
 }
 async function rMeasurePage(m, id){
-  const [{data:v},{data:st},{data:mine},{data:cmts}] = await Promise.all([
+  const [{data:v},{data:st},{data:mine},{data:cmts},{data:clikes}] = await Promise.all([
     SB.from('ward_measures').select('*').eq('id',id).single(),
     SB.rpc('ward_measure_status',{mid:+id}),
     SB.from('ward_ballots').select('*').eq('measure_id',id),
     SB.from('ward_comments').select('*').eq('target_type','measure').eq('target_id',id).order('created_at'),
+    SB.from('ward_comment_likes').select('*'),
   ]);
   if(!v){ m.innerHTML='<div class="err">That vote doesn’t exist (anymore).</div>'; return; }
   if(v.status==='draft'){
@@ -873,7 +896,7 @@ async function rMeasurePage(m, id){
         <button class="btn sm" onclick="editMeasure(${v.id})">✏️ Edit</button>
         <button class="btn sm ghost" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button></div>`:''}
       <div class="thread"><span class="threadlbl">Discussion</span>
-        ${(cmts||[]).map(c=>cmtHtml(c)).join('')}
+        ${(cmts||[]).map(c=>cmtHtml(c,clikes)).join('')}
         <div class="composer">
           <input id="cmt-measure-${v.id}" placeholder="Say your piece…" onkeydown="if(event.key==='Enter')postCmt('measure',${v.id})">
           <button class="btn sm primary" onclick="postCmt('measure',${v.id})">Post</button>
