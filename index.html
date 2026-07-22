@@ -824,7 +824,7 @@ function rcRounds(v){
   return `<div class="thread"><span class="threadlbl">Instant-runoff rounds</span>`+
     v.rc_rounds.map((r,n)=>`<div class="cmt"><b>Round ${n+1}</b>${r.exhausted?`<span class="meta">${r.exhausted} ballot${r.exhausted>1?'s':''} exhausted</span>`:''}<br>
       ${Object.entries(r.counts).map(([i,c])=>`${esc(v.options[i])}: <b>${c}</b>`).join(' · ')}<br>
-      ${'winner' in r?`🏆 ${esc(v.options[r.winner])} takes it`:('eliminated' in r?`eliminated: ${esc(v.options[r.eliminated])}`:esc(r.note||''))}</div>`).join('')+`</div>`;
+      ${'winner' in r?`🏆 ${esc(v.options[r.winner])} takes it`:('eliminated' in r?`eliminated: ${esc(v.options[r.eliminated])}${r.tiebreak?` <span class="meta">· tie broken by ${r.tiebreak==='mentions'?'breadth of support (ranked on fewer ballots)':'the sealed coin'}</span>`:''}`:esc(r.note||''))}</div>`).join('')+`</div>`;
 }
 async function rVote(m){
   if(!me){ m.innerHTML=authBox(); return; }
