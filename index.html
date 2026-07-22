@@ -33,7 +33,11 @@
   .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px;margin-bottom:12px}
   .card h3{font-size:15px;margin-bottom:4px}
   .meta{font-size:11.5px;color:var(--muted)}
-  .body-md{font-size:13.5px;color:var(--ink2);margin-top:8px;white-space:pre-wrap}
+  .body-md{font-size:14px;color:var(--ink2);margin-top:8px;line-height:1.7}
+  .body-md p{margin:9px 0}
+  .body-md .li{padding:5px 0 5px 20px;position:relative}
+  .body-md .li::before{content:'•';position:absolute;left:5px;color:var(--gold);font-weight:800}
+  .body-md b{color:var(--ink)}
   .btn{display:inline-block;padding:8px 16px;border-radius:10px;border:1px solid var(--ring);background:var(--surface2);color:var(--ink);font-size:13px;font-weight:700;cursor:pointer}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .btn.gold{background:var(--gold);border-color:var(--gold);color:#140f02}
@@ -82,11 +86,22 @@
   .overlay{position:fixed;inset:0;background:rgba(6,6,6,.93);z-index:50;overflow-y:auto;padding:30px 16px}
   .overlay .inner{max-width:600px;margin:0 auto}
   .overlay h1{font-size:22px;margin-bottom:4px}
-  .champ-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .champ{flex:1;min-width:130px;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;padding:10px;text-align:center}
+  .champ-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:stretch}
+  .champ{flex:1;min-width:120px;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;padding:10px;text-align:center}
   .champ .yr{font-size:10.5px;color:var(--muted);letter-spacing:.12em}
   .champ .nm{font-weight:800;margin-top:2px}
   .champ .tm{font-size:11px;color:var(--muted)}
+  .champ.reign{flex:1.6;min-width:170px;border-color:rgba(201,133,0,.6);background:linear-gradient(180deg,rgba(201,133,0,.16),var(--surface2));padding:14px 10px}
+  .champ.reign .nm{font-size:17px;color:var(--goldbright)}
+  .crown{font-size:9.5px;color:var(--goldbright);letter-spacing:.18em;font-weight:800;margin-bottom:3px}
+  .bless{background:rgba(201,133,0,.13);border:1px solid rgba(201,133,0,.5);color:var(--goldbright);border-radius:999px;padding:8px 18px;font-size:13.5px;font-weight:800;cursor:pointer}
+  .bless.given{background:var(--gold);color:#140f02;border-color:var(--gold)}
+  .backbtn{display:inline-block;margin-bottom:12px;font-size:13px;color:var(--ink2);background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:6px 14px;cursor:pointer}
+  .voterow2{display:flex;gap:10px;margin-top:16px}
+  .voterow2 .btn{flex:1;text-align:center;padding:14px;font-size:15px}
+  .voterow2 .btn.sel-yes{background:var(--good);border-color:var(--good);color:#04210b}
+  .voterow2 .btn.sel-no{background:var(--bad);border-color:var(--bad);color:#2a0808}
+  .gatebar{background:rgba(201,133,0,.12);border:1px solid rgba(201,133,0,.4);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--goldbright);margin-bottom:14px;text-align:center}
   .hero{background:linear-gradient(180deg,var(--surface),var(--page));border:1px solid var(--ring);border-radius:16px;padding:22px;text-align:center;margin-bottom:14px}
   .hero .big{font-size:26px;font-weight:800}
   .hero .sub{color:var(--ink2);font-size:13.5px;margin-top:4px}
@@ -123,7 +138,8 @@ const SB = supabase.createClient('https://wdfkzkkcyhzrbmipgiil.supabase.co','sb_
 const $ = id => document.getElementById(id);
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtD = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^- (.*)$/gm,'&nbsp;•&nbsp;$1').replace(/§(\d+)/g,'§$1');
+const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*([^*\n]+)\*/g,'<i>$1</i>')
+  .split('\n').map(l=>{ const m=l.match(/^\s*- (.*)$/); return m?`<div class="li">${m[1]}</div>`:(l.trim()?`<p>${l}</p>`:''); }).join('');
 
 let session=null, me=null, members=[], TAB='home', TARGET=null, pendingVotes=[];
 const DRAFT = new Date('2026-09-02T18:30:00-06:00');
@@ -316,17 +332,17 @@ async function saveNewPw(ev){
   return false;
 }
 
-// ---------- forced-vote gate ----------
+// ---------- forced-vote gate: nothing works until every ballot is cast ----------
 function voteGate(){
-  const ov=$('overlay');
-  if(me && pendingVotes.length && TAB!=='vote'){
-    ov.innerHTML=`<div class="overlay"><div class="inner">
-      <h1>🗳️ The Ward requires your vote</h1>
-      <div class="meta" style="margin-bottom:14px">${pendingVotes.length} open measure${pendingVotes.length>1?'s':''} need${pendingVotes.length>1?'':'s'} your ballot before you can do anything else. Democracy isn’t optional here.</div>
-      ${pendingVotes.map(v=>`<div class="card"><h3>${esc(v.title)}</h3></div>`).join('')}
-      <button class="btn gold" onclick="go('vote')">Go vote →</button>
-    </div></div>`;
-  } else ov.innerHTML='';
+  $('overlay').innerHTML='';
+  if(me && pendingVotes.length){
+    const onPending = TAB==='vote' && TARGET && pendingVotes.some(v=>String(v.id)===String(TARGET));
+    if(!onPending){
+      TAB='vote'; TARGET=String(pendingVotes[0].id);
+      history.replaceState(null,'','#vote/'+pendingVotes[0].id);
+      drawTabs();
+    }
+  }
 }
 
 // ---------- HOME ----------
@@ -344,8 +360,8 @@ async function rHome(m){
   } else {
     hero = `<div class="hero"><div class="big">2026 Season</div><div class="sub">Standings sync coming with Week 1 — see Yahoo for live scores.</div></div>`;
   }
-  const champs = `<h2>Champions Row</h2><div class="champ-row">${(seasons||[]).slice().reverse().map(s=>
-    `<div class="champ"><div class="yr">${s.year}</div><div class="nm">🏆 ${esc(s.champion)}</div><div class="tm">${esc(s.champion_team)}</div></div>`).join('')}</div>`;
+  const champs = `<h2>Champions Row</h2><div class="champ-row">${(seasons||[]).map((s,i)=>
+    `<div class="champ${i===0?' reign':''}">${i===0?'<div class="crown">👑 REIGNING CHAMPION</div>':''}<div class="yr">${s.year}</div><div class="nm">🏆 ${esc(s.champion)}</div><div class="tm">${esc(s.champion_team)}</div></div>`).join('')}</div>`;
   let dues='';
   if(me){
     const {data:pay} = await SB.from('ward_payments').select('*').eq('season',2026);
@@ -373,7 +389,7 @@ async function rProposals(m){
   const likeCt = id => (likes||[]).filter(l=>l.proposal_id===id);
   const html = [`<h2>Proposals</h2>
     <div class="card"><h3>Start a proposal</h3>
-    <div class="meta">Pitch a rule change. 2 likes makes it vote-eligible; sub-proposals offer alternate versions; only the commissioner sends things to an official vote (§12).</div>
+    <div class="meta">Bring your idea before the Ward. Two blessings makes it vote-eligible; anyone can suggest an alternate version; the commissioner calls the official vote (§12).</div>
     <input id="np-t" placeholder="Title — e.g. Add a second FLEX" maxlength="140">
     <textarea id="np-b" placeholder="Make your case…"></textarea>
     <div style="margin-top:10px"><button class="btn primary" onclick="newProp()">Propose it</button></div><div id="np-msg"></div></div>`];
@@ -385,18 +401,18 @@ async function rProposals(m){
     const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
     html.push(`<div class="card" id="p-${p.id}"><h3>${esc(p.title)}${pl.length>=2?'<span class="pill blue">Vote-eligible</span>':''}</h3>
       <div class="meta">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)}</div>
-      <div class="body-md">${esc(p.body)}</div>
+      <div class="body-md">${md(p.body)}</div>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="likebtn${iLike?' liked':''}" onclick="likeProp(${p.id},${iLike})">👍 ${pl.length}</button>
+        <button class="bless${iLike?' given':''}" onclick="likeProp(${p.id},${iLike})">🙏 ${iLike?'Blessing offered':'Offer my blessing'} · ${pl.length}</button>
         <button class="likebtn" onclick="copyLink('proposals/${p.id}')" title="Copy link">🔗</button>
         ${me.is_commissioner?`<button class="btn sm gold" onclick="promote(${p.id})">Send to vote →</button>
         <button class="btn sm ghost" onclick="archiveProp(${p.id})">Archive</button>
         <button class="btn sm ghost" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}
       </div>
-      ${pl.length?`<div class="chips">liked by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
+      ${pl.length?`<div class="chips">blessed by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
       ${psubs.map(s=>{const sl=(slikes||[]).filter(x=>x.subproposal_id===s.id), isl=sl.some(x=>x.email===me.email);
         return `<div class="sub-p"><b>${esc(name(s.author_email))}’s version:</b> ${esc(s.body)}
-        <div style="margin-top:6px"><button class="likebtn${isl?' liked':''}" onclick="likeSub(${s.id},${isl})">👍 ${sl.length}</button></div></div>`;}).join('')}
+        <div style="margin-top:6px"><button class="likebtn${isl?' liked':''}" onclick="likeSub(${s.id},${isl})">🙏 ${sl.length}</button></div></div>`;}).join('')}
       <div class="thread"><span class="threadlbl">Discussion</span>
         ${pcmts.map(c=>cmtHtml(c)).join('')}
         <div class="composer">
@@ -460,7 +476,7 @@ async function delMeasure(id){
 async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
 async function promote(id){
   const {data:p} = await SB.from('ward_proposals').select('*').eq('id',id).single();
-  const maj = confirm('STRUCTURAL measure? (money/punishments/membership/governance = 7 of 10 needed)\nOK = structural (7/10) · Cancel = standard (6/10)') ? 'structural':'standard';
+  const maj = confirm('Is this a SACRED MATTER? (money, punishments, membership, or §12 itself — needs 7 of 10 to sustain)\nOK = sacred matter (7/10) · Cancel = regular rule (6/10)') ? 'structural':'standard';
   const days = parseInt(prompt('Voting window in days (default 7):','7')||'7',10);
   const {data:mrow,error} = await SB.from('ward_measures').insert({
     title:p.title, body:p.body, majority:maj, source_proposal_id:id, created_by:me.email,
@@ -471,63 +487,85 @@ async function promote(id){
 }
 
 // ---------- VOTE ----------
+const majPill = v => `<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?'Sacred matter · 7 of 10':'Regular rule · 6 of 10'}</span>`;
+const resPill = v => v.result==='passed'?'<span class="pill green">SUSTAINED</span>':'<span class="pill red">NOT SUSTAINED</span>';
 async function rVote(m){
   if(!me){ m.innerHTML=authBox(); return; }
-  const [{data:meas},{data:mine},{data:cmts}] = await Promise.all([
+  if(TARGET){ await rMeasurePage(m, TARGET); return; }
+  const [{data:meas},{data:mine}] = await Promise.all([
     SB.from('ward_measures').select('*').order('created_at',{ascending:false}),
     SB.from('ward_ballots').select('*'),
-    SB.from('ward_comments').select('*').eq('target_type','measure').order('created_at'),
   ]);
   const myBallot = id => (mine||[]).find(b=>b.measure_id===id);
   const open=(meas||[]).filter(x=>x.status==='open'), closed=(meas||[]).filter(x=>x.status==='closed');
-  const html=[`<h2>Open votes</h2>`];
+  const html=[`<h2>Before the Ward</h2>`];
   if(!open.length) html.push('<div class="meta" style="padding:8px 2px">Nothing on the ballot. Peace in the Ward.</div>');
   for(const v of open){
-    const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id});
-    const s=(st||[])[0]||{}; const b=myBallot(v.id);
-    const need = v.majority==='structural'?7:6;
-    const mcmts=(cmts||[]).filter(c=>c.target_id===v.id);
-    html.push(`<div class="card" id="m-${v.id}"><h3>${esc(v.title)}<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?'Structural · 7/10':'Standard · 6/10'}</span>
-      <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button></h3>
-      <div class="meta">closes ${fmtD(v.closes_at)} · needs ${need} yes of all 10 · secret ballot until closed</div>
-      <div class="body-md">${esc(v.body)}</div>
-      <div class="voterow">
-        <button class="btn${b&&b.choice==='yes'?' sel-yes':''}" onclick="cast(${v.id},'yes')">✅ Yes${b&&b.choice==='yes'?' — your vote':''}</button>
-        <button class="btn${b&&b.choice==='no'?' sel-no':''}" onclick="cast(${v.id},'no')">❌ No${b&&b.choice==='no'?' — your vote':''}</button>
-        <button class="btn${b&&b.choice==='abstain'?' sel-abstain':''}" onclick="cast(${v.id},'abstain')">🤷 Abstain</button>
-      </div>
-      ${b?'<div class="ok">Ballot cast — you can change it until the vote closes.</div>':'<div class="err">You haven’t voted yet.</div>'}
-      <div class="chips">${s.voted_count||0}/${s.member_count||10} voted${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
-      ${s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Yes</div><div><b style="color:var(--bad)">${s.no}</b>No</div><div><b>${s.abstain}</b>Abstain</div></div>`:''}
-      ${me.is_commissioner?`<div style="margin-top:10px"><button class="btn sm gold" onclick="closeMeasure(${v.id})">Close vote now</button>
-        <button class="btn sm ghost" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button></div>`:''}
-      <div class="thread"><span class="threadlbl">Discussion</span>
-        ${mcmts.map(c=>cmtHtml(c)).join('')}
-        <div class="composer">
-          <input id="cmt-measure-${v.id}" placeholder="Say your piece…" onkeydown="if(event.key==='Enter')postCmt('measure',${v.id})">
-          <button class="btn sm primary" onclick="postCmt('measure',${v.id})">Post</button>
-        </div>
-      </div></div>`);
+    const b=myBallot(v.id);
+    html.push(`<div class="card"><h3><a href="#vote/${v.id}" style="color:var(--ink)">${esc(v.title)}</a>${majPill(v)}</h3>
+      <div class="meta">closes ${fmtD(v.closes_at)} · ${b?(b.choice==='yes'?'you sustained 🙌':b.choice==='no'?'you opposed ✋':'you abstained'):'⚠️ awaiting your ballot'}</div>
+      <div style="margin-top:10px"><a class="btn sm ${b?'':'gold'}" href="#vote/${v.id}">${b?'Open →':'Cast your ballot →'}</a></div></div>`);
   }
   if(closed.length){
     html.push('<h2>Decided</h2>');
     for(const v of closed){
       const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id}); const s=(st||[])[0]||{};
-      html.push(`<div class="card" id="m-${v.id}"><h3 style="color:var(--muted)">${esc(v.title)}
-        ${v.result==='passed'?'<span class="pill green">PASSED</span>':'<span class="pill red">FAILED</span>'}
-        <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button>
+      html.push(`<div class="card"><h3 style="color:var(--muted)"><a href="#vote/${v.id}" style="color:var(--muted)">${esc(v.title)}</a> ${resPill(v)}
         ${me.is_commissioner?`<button class="cdel" style="float:right" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button>`:''}</h3>
-        <div class="meta">${s.yes??'?'} yes · ${s.no??'?'} no · ${s.abstain??'?'} abstain · needed ${v.majority==='structural'?7:6}</div></div>`);
+        <div class="meta">${s.yes??'?'} sustained · ${s.no??'?'} opposed${(s.abstain||0)>0?` · ${s.abstain} abstained`:''} · needed ${v.majority==='structural'?7:6}</div></div>`);
     }
   }
   m.innerHTML=html.join('');
-  focusTarget('m');
-  refreshMe().then(()=>{drawTabs();voteGate();});
+  refreshMe().then(()=>{drawTabs();});
+}
+async function rMeasurePage(m, id){
+  const [{data:v},{data:st},{data:mine},{data:cmts}] = await Promise.all([
+    SB.from('ward_measures').select('*').eq('id',id).single(),
+    SB.rpc('ward_measure_status',{mid:+id}),
+    SB.from('ward_ballots').select('*').eq('measure_id',id),
+    SB.from('ward_comments').select('*').eq('target_type','measure').eq('target_id',id).order('created_at'),
+  ]);
+  if(!v){ m.innerHTML='<div class="err">That vote doesn’t exist (anymore).</div>'; return; }
+  const s=(st||[])[0]||{}; const b=(mine||[])[0];
+  const need = v.majority==='structural'?7:6;
+  const gated = pendingVotes.length>0;
+  m.innerHTML = `
+    ${gated?`<div class="gatebar">🗳️ The Ward requires your ballot${pendingVotes.length>1?` — ${pendingVotes.length} votes await`:''}. Everything else unlocks when you’ve voted.</div>`
+           :`<button class="backbtn" onclick="go('vote')">← All votes</button>`}
+    <div class="card" id="m-${v.id}">
+      <h3>${esc(v.title)}${majPill(v)}
+        <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button></h3>
+      <div class="meta">${v.status==='open'?`closes ${fmtD(v.closes_at)} · needs ${need} of 10 to sustain · ballots are secret until it closes`:`closed · needed ${need} of 10`}</div>
+      <div class="body-md">${md(v.body)}</div>
+      ${v.status==='open'?`
+        <div class="voterow2">
+          <button class="btn${b&&b.choice==='yes'?' sel-yes':''}" onclick="cast(${v.id},'yes')">🙌 Sustain${b&&b.choice==='yes'?'ed':''}</button>
+          <button class="btn${b&&b.choice==='no'?' sel-no':''}" onclick="cast(${v.id},'no')">✋ Oppose${b&&b.choice==='no'?'d':''}</button>
+        </div>
+        ${b?'<div class="ok">Ballot recorded — you can change it until the vote closes.</div>':''}`
+      : `<div class="tally" style="margin-top:14px"><div><b style="color:var(--good)">${s.yes??'?'}</b>Sustained</div><div><b style="color:var(--bad)">${s.no??'?'}</b>Opposed</div></div>
+         <div style="margin-top:12px">${resPill(v)}</div>`}
+      <div class="chips">${s.voted_count||0}/${s.member_count||10} ballots in${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
+      ${v.status==='open'&&s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Sustained</div><div><b style="color:var(--bad)">${s.no}</b>Opposed</div></div>`:''}
+      ${me.is_commissioner?`<div style="margin-top:12px">${v.status==='open'?`<button class="btn sm gold" onclick="closeMeasure(${v.id})">Close the vote</button> `:''}
+        <button class="btn sm ghost" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button></div>`:''}
+      <div class="thread"><span class="threadlbl">Discussion</span>
+        ${(cmts||[]).map(c=>cmtHtml(c)).join('')}
+        <div class="composer">
+          <input id="cmt-measure-${v.id}" placeholder="Say your piece…" onkeydown="if(event.key==='Enter')postCmt('measure',${v.id})">
+          <button class="btn sm primary" onclick="postCmt('measure',${v.id})">Post</button>
+        </div>
+      </div>
+    </div>`;
 }
 async function cast(mid,choice){
   const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice});
-  if(error) alert(error.message);
-  await refreshMe(); render();
+  if(error){ alert(error.message); return; }
+  await refreshMe();
+  const next = pendingVotes[0];
+  if(next){ toast('Recorded. Next vote →'); TAB='vote'; TARGET=String(next.id); history.replaceState(null,'','#vote/'+next.id); }
+  else { toast(choice==='yes'?'Sustained 🙌':'Recorded ✋'); }
+  render();
 }
 async function closeMeasure(mid){
   if(!confirm('Close this vote and compute the result?')) return;
