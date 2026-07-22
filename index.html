@@ -965,26 +965,53 @@ async function castRanked(mid){
   if(error){ toast(error.message,3500); return; }
   advanceAfterCast('Ballot cast 🗳️');
 }
+let EM=null;
 async function editMeasure(id){
   const {data:v} = await SB.from('ward_measures').select('*').eq('id',id).single();
   if(!v){ toast('That vote is gone.'); return; }
+  EM={id:v.id, title:v.title, body:v.body, canOpts:v.kind==='ranked'&&v.status==='open',
+      base:(v.options||[]).length, opts:(v.options||[]).map(String)};
+  emRender();
+}
+function emSnap(){
+  if($('em-title')) EM.title=$('em-title').value;
+  if($('em-body')) EM.body=$('em-body').value;
+  EM.opts=EM.opts.map((o,i)=>$('em-op-'+i)?$('em-op-'+i).value:o);
+}
+function emAdd(){ emSnap(); if(EM.opts.length<8) EM.opts.push(''); emRender(); }
+function emDel(i){ emSnap(); if(i>=EM.base) EM.opts.splice(i,1); emRender(); }
+function emRender(){
   $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
     <h3>Edit the vote</h3>
-    <div class="meta" style="margin-top:4px">Title and notes only — the options, ballots, and clock stay as they are.</div>
-    <label>Title</label><input id="em-title" value="${esc(v.title)}">
-    <label>Details</label><textarea id="em-body">${esc(v.body)}</textarea>
+    ${EM.canOpts
+      ?`<div class="meta" style="margin-top:4px">⚠️ Ballots may already be cast. <b>Rewording an option changes it on every ballot that ranked it</b> — right for typos and clarity, wrong for changing what an option means. New options join at the end; published options can never be removed.</div>`
+      :`<div class="meta" style="margin-top:4px">Title and notes only — ballots and the clock stay as they are.</div>`}
+    <label>Title</label><input id="em-title" value="${esc(EM.title)}">
+    <label>Details</label><textarea id="em-body">${esc(EM.body)}</textarea>
+    ${EM.canOpts?`<label>The options — voters rank these</label>
+      ${EM.opts.map((o,i)=>`<div class="composer"><input id="em-op-${i}" value="${esc(o)}" placeholder="Option ${i+1}">${i>=EM.base?`<button class="btn sm ghost" onclick="emDel(${i})" title="Remove">×</button>`:''}</div>`).join('')}
+      ${EM.opts.length<8?`<div style="margin-top:8px"><button class="btn sm" onclick="emAdd()">+ Add option</button></div>`:''}`:''}
     <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn gold" onclick="doEditMeasure(${id})">Save</button>
+      <button class="btn gold" onclick="doEditMeasure(${EM.id})">Save</button>
       <button class="btn ghost" onclick="closeLogin()">Cancel</button>
     </div>
     <div id="em-msg"></div>
   </div></div></div>`;
 }
 async function doEditMeasure(id){
-  const t=$('em-title').value.trim();
-  if(!t){ $('em-msg').innerHTML='<div class="err">Give it a title.</div>'; return; }
-  const {error} = await SB.rpc('ward_edit_measure',{mid:id,new_title:t,new_body:$('em-body').value});
-  if(error){ $('em-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
+  emSnap();
+  const msg=t=>{ $('em-msg').innerHTML=`<div class="err">${esc(t)}</div>`; };
+  const t=EM.title.trim();
+  if(!t) return msg('Give it a title.');
+  if(EM.canOpts){
+    const opts=EM.opts.map(o=>o.trim());
+    if(opts.some(o=>!o)) return msg('Options cannot be blank.');
+    if(new Set(opts.map(o=>o.toLowerCase())).size!==opts.length) return msg('Options must all be different.');
+    const {error:e2} = await SB.rpc('ward_edit_options',{mid:id,new_options:opts});
+    if(e2) return msg(e2.message);
+  }
+  const {error} = await SB.rpc('ward_edit_measure',{mid:id,new_title:t,new_body:EM.body});
+  if(error) return msg(error.message);
   closeLogin(); toast('Vote updated ✏️');
   render();
 }
