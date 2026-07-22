@@ -507,7 +507,7 @@ async function rVote(m){
   for(const v of open){
     const b=myBallot(v.id);
     html.push(`<div class="card"><h3><a href="#vote/${v.id}" style="color:var(--ink)">${esc(v.title)}</a>${majPill(v)}</h3>
-      <div class="meta">closes ${fmtD(v.closes_at)} · ${b?(b.choice==='yes'?'you sustained 🙌':b.choice==='no'?'you opposed ✋':'you abstained'):'⚠️ awaiting your ballot'}</div>
+      <div class="meta">closes ${fmtD(v.closes_at)} · ${b?(b.choice==='yes'?'you sustained 🙌':b.choice==='no'?'you opposed 👎':'you abstained'):'⚠️ awaiting your ballot'}</div>
       <div style="margin-top:10px"><a class="btn sm ${b?'':'gold'}" href="#vote/${v.id}">${b?'Open →':'Cast your ballot →'}</a></div></div>`);
   }
   if(closed.length){
@@ -544,7 +544,7 @@ async function rMeasurePage(m, id){
       ${v.status==='open'?`
         <div class="voterow2">
           <button class="btn${b&&b.choice==='yes'?' sel-yes':''}" onclick="cast(${v.id},'yes')">🙌 Sustain${b&&b.choice==='yes'?'ed':''}</button>
-          <button class="btn${b&&b.choice==='no'?' sel-no':''}" onclick="cast(${v.id},'no')">✋ Oppose${b&&b.choice==='no'?'d':''}</button>
+          <button class="btn${b&&b.choice==='no'?' sel-no':''}" onclick="cast(${v.id},'no')">👎 Oppose${b&&b.choice==='no'?'d':''}</button>
         </div>
         ${b?'<div class="ok">Ballot recorded — you can change it until the vote closes.</div>':''}`
       : `<div class="tally" style="margin-top:14px"><div><b style="color:var(--good)">${s.yes??'?'}</b>Sustained</div><div><b style="color:var(--bad)">${s.no??'?'}</b>Opposed</div></div>
@@ -568,7 +568,7 @@ async function cast(mid,choice){
   await refreshMe();
   const next = pendingVotes[0];
   if(next){ toast('Recorded. Next vote →'); TAB='vote'; TARGET=String(next.id); history.replaceState(null,'','#vote/'+next.id); }
-  else { toast(choice==='yes'?'Sustained 🙌':'Recorded ✋'); }
+  else { toast(choice==='yes'?'Sustained 🙌':'Recorded 👎'); }
   render();
 }
 async function closeMeasure(mid){
