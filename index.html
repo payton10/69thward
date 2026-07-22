@@ -62,6 +62,13 @@
   .rankopt .rk{display:inline-flex;width:26px;height:26px;border-radius:50%;border:1px solid var(--ring);align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted);flex:none}
   .rankopt.on{border-color:var(--gold);background:rgba(201,133,0,.1)}
   .rankopt.on .rk{background:var(--gold);color:#140f02;border-color:var(--gold)}
+  .tour-card{max-width:440px;margin:5vh auto 0;text-align:center;background:var(--surface);border:1px solid var(--ring);border-radius:18px;padding:30px 24px}
+  .tour-ico{font-size:44px}
+  .tour-card h1{font-size:22px;margin:10px 0 4px}
+  .tour-card .body-md{text-align:left}
+  .tour-dots{margin:18px 0 8px}
+  .tour-dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--baseline);margin:0 3px}
+  .tour-dots span.on{background:var(--goldbright)}
   input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:14px;font-family:inherit;margin-top:8px}
   textarea{min-height:80px;resize:vertical}
   label{font-size:12px;color:var(--muted);display:block;margin-top:12px}
@@ -146,7 +153,7 @@
   </header>
   <nav class="tabs" id="tabs"></nav>
   <main id="main"><div class="loading">Loading…</div></main>
-  <footer>The 69th Ward · Buy-in $20 + $2/loss · Last place eats the herring 🐟</footer>
+  <footer>The 69th Ward · Buy-in $20 + $2/loss · Playoff loser eats the herring 🐟</footer>
 </div>
 <div id="overlay"></div>
 <div id="modal"></div>
@@ -253,20 +260,23 @@ async function boot(){
   }
 }
 async function refreshMe(){
-  me=null; members=[]; pendingVotes=[];
+  // Builds into locals, swaps shared state at the END — an in-flight render must never
+  // see me/members half-cleared (that race threw "null is not an object (me.is_commissioner)").
   try{ const {data:th} = await SB.rpc('ward_thresholds'); if(th&&th[0]) TH=th[0]; }catch(e){}
-  if(!session) return;
+  if(!session){ me=null; members=[]; pendingVotes=[]; return; }
   const {data:mem} = await SB.from('ward_members').select('*');
-  members = mem||[];
+  if(!mem) return;   // transient fetch failure (token refresh moment, flaky signal): keep last known state
   const uem = (session.user.email||'').toLowerCase();
   const sm = uem.match(/^w(\d+)@69thward\.app$/);
-  me = members.find(m => sm ? m.phone===sm[1] : (m.email===uem || (m.contact_email||'').toLowerCase()===uem)) || null;
-  if(me){
+  const me2 = mem.find(m => sm ? m.phone===sm[1] : (m.email===uem || (m.contact_email||'').toLowerCase()===uem)) || null;
+  let pending2 = [];
+  if(me2){
     const {data:open} = await SB.from('ward_measures').select('id,title').eq('status','open');
     const {data:mine} = await SB.from('ward_ballots').select('measure_id');
     const voted = new Set((mine||[]).map(b=>b.measure_id));
-    pendingVotes = (open||[]).filter(m=>!voted.has(m.id));
+    pending2 = (open||[]).filter(m=>!voted.has(m.id));
   }
+  members=mem; me=me2; pendingVotes=pending2;
 }
 let menuOpen=false;
 function fmtPhone(d){ d=(d||'').replace(/^1/,''); return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:d; }
@@ -287,17 +297,13 @@ function drawWho(){
   }
 }
 function toggleMenu(){ menuOpen=!menuOpen; drawWho(); }
-async function saveEmail(){
-  const v=$('pf-em').value.trim().toLowerCase();
-  const {error} = await SB.from('ward_members').update({contact_email:v||null}).eq('email',me.email);
-  $('pf-msg').innerHTML = error?`<div class="err">${esc(error.message)}</div>`:'<div class="ok">Saved.</div>';
-  if(!error) me.contact_email=v;
-}
 async function signOut(){ await SB.auth.signOut(); location.reload(); }
 
 // ---------- render root ----------
 async function render(){
-  drawTabs(); drawWho(); voteGate();
+  drawWho();
+  if(me && !me.tour_done){ $('tabs').innerHTML=''; $('overlay').innerHTML=''; renderTour(); return; }  // tour first, then the gate
+  drawTabs(); voteGate();
   const m=$('main'); m.innerHTML='<div class="loading">Loading…</div>';
   try{
     if(TAB==='home') await rHome(m);
@@ -394,6 +400,35 @@ async function saveNewPw(ev){
   $('r-msg').innerHTML = error ? `<div class="err">${esc(error.message)}</div>` : '<div class="ok">Done — you’re signed in.</div>';
   if(!error) setTimeout(()=>{ closeLogin(); location.hash='home'; location.reload(); }, 900);
   return false;
+}
+
+// ---------- first-visit tour: runs ONCE per member, before the vote gate ----------
+let TOURSTEP=0;
+const TOUR=[
+  {i:'⛪',t:'Welcome to the 69th Ward',b:`This is the league's home — <b>the rules, the votes, the money, and the history</b>, all in one place.<br><br>You're signed in, and you'll stay signed in on this device. <b>Tip:</b> hit your browser's share menu and <b>Add to Home Screen</b> — it works like an app.`},
+  {i:'🏠',t:'Home',b:`Right now, Home shows the <b>draft countdown</b> and Champions Row. Once the season starts it becomes <b>standings and who owes what</b>.`},
+  {i:'🎲',t:'The Draft Derby',b:`Draft order isn't pulled from a hat — it plays out <b>live, every night at 6 PM</b>. Everyone collects random points; down the stretch the lowest total locks into the worst open pick, night by night, until a head-to-head finale for pick #1 two days before the draft.<br><br>It's provably fair — the Derby page can re-verify every roll in your own browser.`},
+  {i:'🙏',t:'Proposals',b:`Want a rule changed? <b>Propose it — make your case.</b> When <b>2 or more</b> league mates offer their blessing, it's eligible for a vote. You can discuss any proposal or post your own version of it.<br><br>Only the commissioner sends things to an official vote.`},
+  {i:'🗳️',t:'Votes',b:`Rule changes are decided by everyone. You'll <b>Sustain 🙌 or Oppose 👎</b> — ballots are secret until the vote closes; who has voted is public. Some votes are <b>ranked-choice</b>: tap the options in your order of preference.<br><br><b>Heads up:</b> while a vote is open, the app locks everything else until you've cast your ballot. Democracy first.`},
+  {i:'📜',t:'Commandments & Church History',b:`The rulebook lives under <b>Commandments</b> — ten of them, everything from scoring to money in plain words. <b>Church History</b> keeps every season: champions, standings, and 🍆 holders.<br><br>That's the tour. Welcome aboard.`},
+];
+function renderTour(){
+  const s=TOUR[TOURSTEP], last=TOURSTEP===TOUR.length-1;
+  $('main').innerHTML=`<div class="tour-card">
+    <div class="tour-ico">${s.i}</div><h1>${s.t}</h1>
+    <div class="body-md">${s.b}</div>
+    <div class="tour-dots">${TOUR.map((_,j)=>`<span class="${j===TOURSTEP?'on':''}"></span>`).join('')}</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px">
+      ${TOURSTEP>0?`<button class="btn ghost" onclick="TOURSTEP--;renderTour()">← Back</button>`:''}
+      ${last?`<button class="btn gold" onclick="finishTour()">${pendingVotes.length?'Enter — a vote awaits →':'Enter the Ward →'}</button>`
+            :`<button class="btn primary" onclick="TOURSTEP++;renderTour()">Next →</button>`}
+    </div>
+  </div>`;
+}
+async function finishTour(){
+  me.tour_done=new Date().toISOString();          // let them in immediately
+  try{ await SB.rpc('ward_tour_done'); }catch(e){} // persist; if it hiccups the tour just reruns next session
+  render();
 }
 
 // ---------- forced-vote gate: nothing works until every ballot is cast ----------
@@ -694,7 +729,7 @@ async function rMeasurePage(m, id){
       : (ranked?`<div style="margin-top:14px">${resPill(v)}</div>${rcRounds(v)}`
                :`<div class="tally" style="margin-top:14px"><div><b style="color:var(--good)">${s.yes??'?'}</b>Sustained</div><div><b style="color:var(--bad)">${s.no??'?'}</b>Opposed</div></div>
          <div style="margin-top:12px">${resPill(v)}</div>`)}
-      <div class="chips">${s.voted_count||0}/${s.member_count||10} ballots in${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
+      <div class="chips">${s.voted_count||0}/${s.member_count||TH.member_count} ballots in${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
       ${v.status==='open'&&!ranked&&s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Sustained</div><div><b style="color:var(--bad)">${s.no}</b>Opposed</div></div>`:''}
       ${me.is_commissioner?`<div style="margin-top:12px">${v.status==='open'?`<button class="btn sm gold" onclick="closeMeasure(${v.id})">Close the vote</button> `:''}
         <button class="btn sm" onclick="editMeasure(${v.id})">✏️ Edit</button>
