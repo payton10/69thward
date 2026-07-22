@@ -145,7 +145,7 @@ function focusTarget(prefix){
   setTimeout(()=>{
     const el=$(prefix+'-'+t);
     if(!el || !el.isConnected) return;   // a competing render replaced the DOM; the next pass will land it
-    el.scrollIntoView({behavior:'smooth',block:'start'});
+    el.scrollIntoView({behavior:'auto',block:'start'});
     el.style.outline='2px solid var(--goldbright)'; el.style.outlineOffset='3px';
     setTimeout(()=>el.style.outline='',2600);
     TARGET=null;
