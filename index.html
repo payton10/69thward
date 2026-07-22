@@ -213,7 +213,7 @@ function drawTabs(){
   }).join('');
 }
 function go(t){ TAB=t; TARGET=null; location.hash=t; render(); }
-function parseHash(){ const p=location.hash.slice(1).split('/'); if(TABS.some(([k])=>k===p[0])){ TAB=p[0]; TARGET=p[1]||null; return true; } return false; }
+function parseHash(){ const p=location.hash.slice(1).split('/'); if(p[0]==='members'||TABS.some(([k])=>k===p[0])){ TAB=p[0]; TARGET=p[1]||null; return true; } return false; }
 window.addEventListener('hashchange',()=>{ if(parseHash()) render(); });
 function focusTarget(prefix){
   if(!TARGET) return; const t=TARGET;
@@ -314,6 +314,7 @@ function drawWho(){
         <div class="meta">📱 ${fmtPhone(me.phone)}</div>
         <div class="meta" style="margin-top:6px">✉️ ${esc(me.contact_email||'no email on file')}</div>
         <div class="meta" style="margin-top:4px;font-size:10.5px">Password resets go to this email. Need it changed? Tell the commissioner.</div>
+        ${me.is_commissioner?`<div style="margin-top:10px"><button class="btn sm" onclick="menuOpen=false;go('members')">👥 Manage the Ward</button></div>`:''}
         <div style="margin-top:10px"><button class="btn sm ghost" onclick="signOut()">Sign out</button></div>
       </div>`:''}`;
   } else if(session){
@@ -345,6 +346,7 @@ async function render(){
     else if(TAB==='vote') await rVote(m);
     else if(TAB==='rules') await rRules(m);
     else if(TAB==='history') await rHistory(m);
+    else if(TAB==='members') await rMembers(m);
   }catch(e){ m.innerHTML=`<div class="err">Something broke: ${esc(e.message)}</div>`; }
   LASTVIEW=view;
   if(sameView) window.scrollTo(0,y);
@@ -1020,6 +1022,74 @@ async function closeMeasure(mid){
   const {data,error} = await SB.rpc('ward_close_measure',{mid});
   if(error) toast(error.message,3500);
   else toast(data==='passed'?'SUSTAINED 🙌':data==='failed'?'NOT SUSTAINED 👎':data?'🏆 Winner: '+data:'Closed — no ballots were cast',3000);
+  render();
+}
+
+// ---------- MEMBERS (commissioner only, via profile menu · #members) ----------
+async function rMembers(m){
+  if(!me||!me.is_commissioner){ TAB='home'; history.replaceState(null,'','#home'); return rHome(m); }
+  const {data:rows,error} = await SB.rpc('ward_admin_members');
+  if(error||!rows){ m.innerHTML=`<div class="err">${esc(error?error.message:'Roster unavailable.')}</div>`; return; }
+  const html=[`<h2>The Ward · ${rows.length} members</h2>
+    <div class="card"><h3>Add a member</h3>
+    <div class="meta">The phone number is their sign-in key — it must be the number they'll sign up with. Email is optional here; they add their real one at signup.</div>
+    <input id="ma-n" placeholder="First name" maxlength="40">
+    <input id="ma-p" type="tel" placeholder="Phone — (208) 555-0123">
+    <input id="ma-e" type="email" placeholder="Email (optional)">
+    <div style="margin-top:10px"><button class="btn primary" onclick="mmAdd()">Add to the roster</button></div><div id="ma-msg"></div></div>`];
+  for(const r of rows){
+    html.push(`<div class="card"><h3>${esc(r.name)}${r.is_commissioner?'<span class="pill gold">Commissioner</span>':''}
+        ${r.signed_up?'<span class="pill green">Signed up</span>':'<span class="pill">Hasn’t joined yet</span>'}${r.signed_up&&!r.tour_done?'<span class="pill blue">Tour pending</span>':''}</h3>
+      <div class="meta">📱 ${fmtPhone(r.phone)} · ✉️ ${esc(r.contact_email||'no email yet')} · joined ${r.joined_season||'—'}${r.last_seen?` · last seen ${fmtD(r.last_seen)}`:''}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="mmEdit('${esc(r.email)}')">✏️ Edit</button>
+        ${r.signed_up&&r.contact_email?`<button class="btn sm" onclick="mmReset('${esc(r.contact_email)}')">🔑 Send password reset</button>`:''}
+        ${r.is_commissioner?'':`<button class="btn sm ghost" onclick="mmRemove('${esc(r.email)}','${esc(r.name)}')">🗑 Remove</button>`}
+      </div></div>`);
+  }
+  m.innerHTML=html.join('');
+}
+async function mmAdd(){
+  const msg=t=>{ $('ma-msg').innerHTML=`<div class="err">${esc(t)}</div>`; };
+  const n=$('ma-n').value.trim(), p=$('ma-p').value, e=$('ma-e').value.trim();
+  if(!n) return msg('Give them a name.');
+  const {error} = await SB.rpc('ward_admin_add',{new_name:n,new_phone:p,new_contact:e||null});
+  if(error) return msg(error.message);
+  toast('Added to the roster 🙌'); render();
+}
+let MM=null;
+async function mmEdit(email){
+  const {data:rows} = await SB.rpc('ward_admin_members');
+  const r=(rows||[]).find(x=>x.email===email);
+  if(!r){ toast('Member not found.'); return; }
+  MM=r;
+  $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
+    <h3>Edit ${esc(r.name)}</h3>
+    <div class="meta" style="margin-top:4px">Phone is their sign-in. Changing the email moves their sign-in and password resets with it. (Derby names live separately and freeze once drops publish.)</div>
+    <label>Name</label><input id="mm-n" value="${esc(r.name)}" maxlength="40">
+    <label>Phone</label><input id="mm-p" type="tel" value="${esc(fmtPhone(r.phone))}">
+    <label>Email</label><input id="mm-e" type="email" value="${esc(r.contact_email||'')}" placeholder="none yet">
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn gold" onclick="mmSave()">Save</button>
+      <button class="btn ghost" onclick="closeLogin()">Cancel</button>
+    </div>
+    <div id="mm-msg"></div>
+  </div></div></div>`;
+}
+async function mmSave(){
+  const msg=t=>{ $('mm-msg').innerHTML=`<div class="err">${esc(t)}</div>`; };
+  const {error} = await SB.rpc('ward_admin_update',{target:MM.email,new_name:$('mm-n').value,new_phone:$('mm-p').value,new_contact:$('mm-e').value.trim()||null});
+  if(error) return msg(error.message);
+  closeLogin(); toast('Member updated ✏️'); render();
+}
+async function mmReset(email){
+  const {error} = await SB.auth.resetPasswordForEmail(email,{redirectTo:'https://payton10.github.io/69thward/'});
+  toast(error?error.message:'Reset link sent to '+maskEm(email)+' 🔑',3000);
+}
+async function mmRemove(email,nm){
+  if(!await wardConfirm({title:`Remove ${esc(nm)} from the Ward?`, body:'Their sign-in goes with them. If they have history here (ballots, posts), the removal is refused and the record stays.', ok:'Remove', okClass:'danger'})) return;
+  const {error} = await SB.rpc('ward_admin_remove',{target:email});
+  if(error) toast(error.message,4500); else toast(nm+' removed.');
   render();
 }
 
