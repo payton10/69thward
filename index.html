@@ -366,7 +366,7 @@ async function rHome(m){
   if(me){
     const {data:pay} = await SB.from('ward_payments').select('*').eq('season',2026);
     dues = `<h2>2026 Money</h2><div class="card">
-      <div class="meta">Buy-in $20 + $2 per loss (max $46), due after the regular season. 3rd gets buy-in back; the rest splits 70/30.</div>
+      <div class="meta">Buy-in $20 + $2 per regular-season loss (lose all 14 and it's $48), due after the regular season. 3rd gets buy-in back; the rest splits 70/30.</div>
       ${(pay&&pay.length)?`<table><tr><th>Manager</th><th style="text-align:right">Due</th><th>Status</th></tr>${pay.map(p=>
         `<tr><td>${esc(name(p.email))}</td><td class="num">$${p.due}</td><td>${p.paid?'<span class="pill green">Paid</span>':'<span class="pill red">Owes</span>'}</td></tr>`).join('')}</table>`
       :'<div class="meta" style="margin-top:8px">Dues appear here once the regular season wraps.</div>'}</div>`;
