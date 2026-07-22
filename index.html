@@ -92,7 +92,6 @@
   .composer{display:flex;gap:8px;margin-top:10px;align-items:stretch}
   .composer input{margin-top:0;flex:1}
   .composer .btn{white-space:nowrap}
-  .sub-p{margin:8px 0 0 14px;padding:10px 12px;border-left:2px solid var(--baseline);background:var(--surface2);border-radius:0 10px 10px 0;font-size:13px;color:var(--ink2)}
   .voterow{display:flex;gap:8px;margin-top:12px}
   .voterow .btn{flex:1;text-align:center}
   .voterow .btn.sel-yes{background:var(--good);border-color:var(--good);color:#04210b}
@@ -479,29 +478,26 @@ async function rHome(m){
 // ---------- PROPOSALS ----------
 async function rProposals(m){
   if(!me){ m.innerHTML=authBox(); return; }
-  const [{data:props},{data:likes},{data:subs},{data:slikes},{data:cmts}] = await Promise.all([
-    SB.from('ward_proposals').select('*').order('created_at',{ascending:false}),
+  const [{data:props},{data:likes},{data:cmts}] = await Promise.all([
+    SB.from('ward_proposals').select('*').order('created_at',{ascending:true}),
     SB.from('ward_proposal_likes').select('*'),
-    SB.from('ward_subproposals').select('*').order('created_at'),
-    SB.from('ward_subproposal_likes').select('*'),
     SB.from('ward_comments').select('*').eq('target_type','proposal').order('created_at'),
   ]);
   const likeCt = id => (likes||[]).filter(l=>l.proposal_id===id);
   const html = [`<h2>Proposals</h2>
-    <div class="card"><h3>Start a proposal</h3>
-    <div class="meta">Bring your idea before the Ward. Two blessings makes it vote-eligible; anyone can suggest an alternate version; the commissioner calls the official vote (Commandment X).</div>
-    <input id="np-t" placeholder="Title — e.g. Add a second FLEX" maxlength="140">
-    <textarea id="np-b" placeholder="Make your case…"></textarea>
-    <div style="margin-top:10px"><button class="btn primary" onclick="newProp()">Propose it</button></div><div id="np-msg"></div></div>`];
-  const open=(props||[]).filter(p=>p.status==='open'), done=(props||[]).filter(p=>p.status!=='open');
+    <div class="card"><h3>Propose something</h3>
+    <div class="meta">One idea per proposal — they all stand side by side, and you can bless as many as you like. 2+ blessings makes one vote-eligible; the commissioner sends it to an official vote (Commandment X).</div>
+    <input id="np-t" placeholder="Your proposal — e.g. Bring back the Milk Mile" maxlength="140">
+    <textarea id="np-b" placeholder="Details — optional, make your case…"></textarea>
+    <div style="margin-top:10px"><button class="btn primary" onclick="newProp()">🙏 Propose it</button></div><div id="np-msg"></div></div>`];
+  const open=(props||[]).filter(p=>p.status==='open'), done=(props||[]).filter(p=>p.status!=='open').reverse();
   if(!open.length) html.push('<div class="meta" style="padding:8px 2px">No open proposals. The floor is yours.</div>');
   for(const p of open){
     const pl=likeCt(p.id), iLike=pl.some(l=>l.email===me.email);
-    const psubs=(subs||[]).filter(s=>s.proposal_id===p.id);
     const pcmts=(cmts||[]).filter(c=>c.target_id===p.id);
     html.push(`<div class="card" id="p-${p.id}"><h3>${esc(p.title)}${pl.length>=2?'<span class="pill blue">Vote-eligible</span>':''}</h3>
-      <div class="meta">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)}</div>
-      <div class="body-md">${md(p.body)}</div>
+      <div class="meta">by ${esc(name(p.author_email))} · ${fmtD(p.created_at)} · 🙏 ${pl.length}</div>
+      ${p.body?`<div class="body-md">${md(p.body)}</div>`:''}
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="bless${iLike?' given':''}" onclick="likeProp(${p.id},${iLike})">🙏 ${iLike?'Blessing offered':'Offer my blessing'} · ${pl.length}</button>
         <button class="likebtn" data-st="Proposal: ${esc(p.title)}" onclick="shareLink(this,'proposals/${p.id}')" title="Share link">🔗</button>
@@ -510,21 +506,11 @@ async function rProposals(m){
         <button class="btn sm ghost" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}
       </div>
       ${pl.length?`<div class="chips">blessed by ${pl.map(l=>`<span class="c">${esc(name(l.email))}</span>`).join('')}</div>`:''}
-      ${psubs.map(s=>{const sl=(slikes||[]).filter(x=>x.subproposal_id===s.id), isl=sl.some(x=>x.email===me.email);
-        return `<div class="sub-p"><b>${esc(name(s.author_email))}’s version:</b> ${esc(s.body)}
-        <div style="margin-top:6px"><button class="likebtn${isl?' liked':''}" onclick="likeSub(${s.id},${isl})">🙏 ${sl.length}</button></div></div>`;}).join('')}
       <div class="thread"><span class="threadlbl">Discussion</span>
         ${pcmts.map(c=>cmtHtml(c)).join('')}
         <div class="composer">
           <input id="cmt-proposal-${p.id}" placeholder="Say something…" onkeydown="if(event.key==='Enter')postCmt('proposal',${p.id})">
           <button class="btn sm primary" onclick="postCmt('proposal',${p.id})">Post</button>
-        </div>
-        <button class="btn sm ghost" style="margin-top:10px" onclick="toggleSub(${p.id})">✍️ Suggest an alternate version</button>
-        <div id="subbox-${p.id}" style="display:none">
-          <div class="composer">
-            <input id="sub-${p.id}" placeholder="Your version of this rule…" onkeydown="if(event.key==='Enter')addSub(${p.id})">
-            <button class="btn sm primary" onclick="addSub(${p.id})">Post version</button>
-          </div>
         </div>
       </div></div>`);
   }
@@ -543,12 +529,6 @@ async function newProp(){
 }
 async function likeProp(id,un){ un? await SB.from('ward_proposal_likes').delete().match({proposal_id:id,email:me.email})
   : await SB.from('ward_proposal_likes').insert({proposal_id:id,email:me.email}); render(); }
-async function likeSub(id,un){ un? await SB.from('ward_subproposal_likes').delete().match({subproposal_id:id,email:me.email})
-  : await SB.from('ward_subproposal_likes').insert({subproposal_id:id,email:me.email}); render(); }
-async function addSub(pid){
-  const v=$('sub-'+pid).value.trim(); if(!v) return;
-  await SB.from('ward_subproposals').insert({proposal_id:pid,author_email:me.email,body:v}); render();
-}
 function cmtHtml(c){
   const canDel = me && (c.author_email===me.email || me.is_commissioner);
   return `<div class="cmt">${canDel?`<button class="cdel" onclick="delCmt(${c.id})" title="Delete comment">×</button>`:''}<b>${esc(name(c.author_email))}</b><span class="meta">${fmtD(c.created_at)}</span><br>${esc(c.body)}</div>`;
@@ -560,7 +540,6 @@ async function postCmt(type,id){
   render();
 }
 async function delCmt(id){ await SB.from('ward_comments').delete().eq('id',id); render(); }
-function toggleSub(pid){ const b=$('subbox-'+pid); b.style.display = b.style.display==='none'?'block':'none'; if(b.style.display==='block') $('sub-'+pid).focus(); }
 async function delProp(id){
   if(!await wardConfirm({title:'Delete this proposal?', body:'Thread, blessings, versions — everything goes. This is permanent.', ok:'Delete forever', okClass:'danger'})) return;
   const {error} = await SB.rpc('ward_delete_proposal',{pid:id});
