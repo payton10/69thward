@@ -189,6 +189,9 @@ const SB = supabase.createClient('https://wdfkzkkcyhzrbmipgiil.supabase.co','sb_
 const $ = id => document.getElementById(id);
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtD = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const dtVal = d => { const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+const snapClose = days => { const d=new Date(); d.setDate(d.getDate()+days); d.setHours(21,0,0,0); return d; };  // votes close at 9:00 PM
+const fmtClose = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*([^*\n]+)\*/g,'<i>$1</i>')
   .split('\n').map(l=>{ const m=l.match(/^\s*- (.*)$/); return m?`<div class="li">${m[1]}</div>`:(l.trim()?`<p>${l}</p>`:''); }).join('');
 
@@ -647,18 +650,29 @@ async function openComposer(init){
   const {data:mrow,error} = await SB.from('ward_measures').insert({
     title:init.title||'', body:init.body||'', status:'draft', kind:'binary', majority:'standard',
     source_proposal_id:init.source||null, created_by:me.email, window_days:7,
-    closes_at:new Date(Date.now()+7*864e5).toISOString()}).select().single();
+    closes_at:snapClose(7).toISOString()}).select().single();
   if(error){ toast(error.message,3500); return; }
-  MC={id:mrow.id, source:init.source||null, kind:'binary', maj:'standard', opts:['',''], title:init.title||'', body:init.body||'', days:7};
+  MC={id:mrow.id, source:init.source||null, kind:'binary', maj:'standard', opts:['',''], title:init.title||'', body:init.body||'', win:'7', customClose:null};
   mcRender();
 }
 async function editDraft(id){
   const {data:v} = await SB.from('ward_measures').select('*').eq('id',id).single();
   if(!v||v.status!=='draft'){ toast('That draft is gone.'); render(); return; }
   const opts=(v.options||[]).map(String);
-  MC={id:v.id, source:v.source_proposal_id, kind:v.kind, maj:v.majority, opts:opts.length>=2?opts:['',''], title:v.title, body:v.body, days:v.window_days||7};
+  const win=[3,7,14].includes(v.window_days)?String(v.window_days):'custom';
+  MC={id:v.id, source:v.source_proposal_id, kind:v.kind, maj:v.majority, opts:opts.length>=2?opts:['',''], title:v.title, body:v.body,
+      win, customClose:win==='custom'?dtVal(new Date(v.closes_at)):null};
   mcRender();
 }
+function mcClose(){
+  if(MC.win==='custom'){ const d=new Date(MC.customClose||''); return isNaN(d)?snapClose(7):d; }
+  return snapClose(+MC.win);
+}
+function mcCloseText(){
+  return MC.win==='custom' ? `Closes ${fmtClose(mcClose())}.` : `Closes ${fmtClose(mcClose())} — final time is set when you publish.`;
+}
+function mcWin(v){ mcSnap(); MC.win=v; if(v==='custom'&&!MC.customClose) MC.customClose=dtVal(snapClose(7)); mcRender(); mcSave(); }
+function mcPreview(){ mcSnap(); const el=$('mc-prev'); if(el) el.textContent=mcCloseText(); }
 function mcDirty(){
   mcSnap();
   const el=$('mc-saved'); if(el) el.textContent='saving…';
@@ -668,11 +682,12 @@ function mcDirty(){
 async function mcSave(){
   if(!MC||!MC.id) return;
   const opts=MC.kind==='ranked'?MC.opts.map(o=>o.trim()).filter(Boolean):[];
-  const days=Math.max(1,Math.min(30,parseInt(MC.days,10)||7));
+  const close=mcClose();
+  const days=MC.win==='custom'?Math.max(1,Math.ceil((close-Date.now())/864e5)):+MC.win;
   const {error} = await SB.from('ward_measures').update({
     title:MC.title.trim(), body:MC.body, kind:MC.kind, majority:MC.maj,
     options:opts.length?opts:null, window_days:days,
-    closes_at:new Date(Date.now()+days*864e5).toISOString()
+    closes_at:close.toISOString()
   }).eq('id',MC.id).eq('status','draft');
   const el=$('mc-saved'); if(el) el.textContent = error?'⚠️ not saved':'Draft saved ✓';
 }
@@ -695,7 +710,7 @@ async function delDraft(id){
 function mcSnap(){
   if($('mc-title')) MC.title=$('mc-title').value;
   if($('mc-body')) MC.body=$('mc-body').value;
-  if($('mc-days')) MC.days=$('mc-days').value;
+  if($('mc-close')) MC.customClose=$('mc-close').value;
   MC.opts=MC.opts.map((o,i)=>$('mc-op-'+i)?$('mc-op-'+i).value:o);
 }
 function mcKind(k){ mcSnap(); MC.kind=k; mcRender(); mcSave(); }
@@ -721,8 +736,15 @@ function mcRender(){
     <label>The options (2–8) — voters rank as many as they like</label>
     ${MC.opts.map((o,i)=>`<div class="composer"><input id="mc-op-${i}" value="${esc(o)}" placeholder="Option ${i+1}" oninput="mcDirty()">${MC.opts.length>2?`<button class="btn sm ghost" onclick="mcDelOpt(${i})" title="Remove">×</button>`:''}</div>`).join('')}
     ${MC.opts.length<8?`<div style="margin-top:8px"><button class="btn sm" onclick="mcAddOpt()">+ Add option</button></div>`:''}`}
-    <label>Voting window (days, from publish)</label>
-    <input id="mc-days" type="number" min="1" max="30" value="${esc(MC.days)}" oninput="mcDirty()">
+    <label>Voting closes</label>
+    <div class="pickrow">
+      <button class="pick${MC.win==='3'?' on':''}" onclick="mcWin('3')"><b>3 days</b></button>
+      <button class="pick${MC.win==='7'?' on':''}" onclick="mcWin('7')"><b>1 week</b></button>
+      <button class="pick${MC.win==='14'?' on':''}" onclick="mcWin('14')"><b>2 weeks</b></button>
+      <button class="pick${MC.win==='custom'?' on':''}" onclick="mcWin('custom')"><b>Custom</b></button>
+    </div>
+    ${MC.win==='custom'?`<input id="mc-close" type="datetime-local" value="${esc(MC.customClose||dtVal(snapClose(7)))}" oninput="mcDirty();mcPreview()">`:''}
+    <div class="meta" style="margin-top:6px" id="mc-prev">${mcCloseText()}</div>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
       <button class="btn gold" onclick="mcPublish()">Publish vote</button>
       <button class="btn ghost" onclick="closeComposer(false)">Save & close</button>
@@ -736,10 +758,12 @@ async function mcPublish(){
   if(MCTIMER){ clearTimeout(MCTIMER); MCTIMER=null; }
   const msg=t=>{ $('mc-msg').innerHTML=`<div class="err">${esc(t)}</div>`; };
   const title=MC.title.trim();
-  const days=Math.max(1,Math.min(30,parseInt(MC.days,10)||7));
+  const close=mcClose();
   if(!title) return msg('Give it a title.');
+  if(isNaN(close)||close<=new Date()) return msg('Pick a close time in the future.');
+  const days=MC.win==='custom'?Math.max(1,Math.ceil((close-Date.now())/864e5)):+MC.win;
   const upd={title, body:MC.body.trim(), kind:MC.kind, majority:MC.maj, options:null, window_days:days,
-             status:'open', opens_at:new Date().toISOString(), closes_at:new Date(Date.now()+days*864e5).toISOString()};
+             status:'open', opens_at:new Date().toISOString(), closes_at:close.toISOString()};
   if(MC.kind==='ranked'){
     const opts=MC.opts.map(o=>o.trim()).filter(Boolean);
     if(opts.length<2) return msg('Ranked choice needs at least 2 options.');
@@ -758,14 +782,17 @@ async function schedMeasure(id){
   const {data:v} = await SB.from('ward_measures').select('*').eq('id',id).single();
   if(!v){ toast('That vote is gone.'); return; }
   const reopen=v.status==='closed';
-  const d=new Date(reopen?Date.now()+7*864e5:v.closes_at);
-  const pad=n=>String(n).padStart(2,'0');
-  const val=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const val=reopen?dtVal(snapClose(7)):dtVal(new Date(v.closes_at));
   $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
     <h3>${reopen?'Reopen this vote':'Change the close time'}</h3>
     ${reopen?'<div class="meta" style="margin-top:4px">Reopening clears the recorded result. Ballots already cast stay, and can be changed until the new close.</div>':'<div class="meta" style="margin-top:4px">The vote closes for good when you hit "Close the vote" — this just moves the deadline.</div>'}
     <label>Closes at</label>
     <input id="sch-dt" type="datetime-local" value="${val}">
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      <button class="btn sm" onclick="schSet(1)">Tomorrow 9 PM</button>
+      <button class="btn sm" onclick="schSet(3)">3 days · 9 PM</button>
+      <button class="btn sm" onclick="schSet(7)">1 week · 9 PM</button>
+    </div>
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn gold" onclick="doSched(${id},${reopen})">${reopen?'Reopen vote':'Save'}</button>
       <button class="btn ghost" onclick="closeLogin()">Cancel</button>
@@ -773,6 +800,7 @@ async function schedMeasure(id){
     <div id="sch-msg"></div>
   </div></div></div>`;
 }
+function schSet(d){ const el=$('sch-dt'); if(el) el.value=dtVal(snapClose(d)); }
 async function doSched(id,reopen){
   const t=new Date($('sch-dt').value);
   if(!(t instanceof Date)||isNaN(t)||t<=new Date()){ $('sch-msg').innerHTML='<div class="err">Pick a time in the future.</div>'; return; }
