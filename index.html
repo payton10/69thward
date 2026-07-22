@@ -51,6 +51,10 @@
   .pick span{font-size:11px;color:var(--muted);line-height:1.35;display:block;margin-top:2px}
   .pick.on{border-color:var(--gold);background:rgba(201,133,0,.12)}
   .pick.on b{color:var(--goldbright)}
+  .rankopt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--surface2);border:1px solid var(--ring);border-radius:12px;padding:11px 13px;cursor:pointer;color:var(--ink);font-size:14px;font-family:inherit;margin-top:8px}
+  .rankopt .rk{display:inline-flex;width:26px;height:26px;border-radius:50%;border:1px solid var(--ring);align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted);flex:none}
+  .rankopt.on{border-color:var(--gold);background:rgba(201,133,0,.1)}
+  .rankopt.on .rk{background:var(--gold);color:#140f02;border-color:var(--gold)}
   input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:14px;font-family:inherit;margin-top:8px}
   textarea{min-height:80px;resize:vertical}
   label{font-size:12px;color:var(--muted);display:block;margin-top:12px}
@@ -509,41 +513,90 @@ async function delMeasure(id){
   render();
 }
 async function archiveProp(id){ await SB.from('ward_proposals').update({status:'archived'}).eq('id',id); render(); }
-let PMAJ='standard';
-function promote(id){
-  PMAJ='standard';
+// ---------- vote composer (promote a proposal OR commissioner creates from scratch) ----------
+let MC=null;
+async function promote(id){
+  const {data:p} = await SB.from('ward_proposals').select('*').eq('id',id).single();
+  voteComposer({source:id, title:p.title, body:p.body});
+}
+function createVote(){ voteComposer({}); }
+function voteComposer(init){
+  MC={source:init.source||null, kind:'binary', maj:'standard', opts:['',''], title:init.title||'', body:init.body||'', days:7};
+  mcRender();
+}
+function mcSnap(){
+  if($('mc-title')) MC.title=$('mc-title').value;
+  if($('mc-body')) MC.body=$('mc-body').value;
+  if($('mc-days')) MC.days=$('mc-days').value;
+  MC.opts=MC.opts.map((o,i)=>$('mc-op-'+i)?$('mc-op-'+i).value:o);
+}
+function mcKind(k){ mcSnap(); MC.kind=k; mcRender(); }
+function mcMaj(v){ mcSnap(); MC.maj=v; mcRender(); }
+function mcAddOpt(){ mcSnap(); if(MC.opts.length<8) MC.opts.push(''); mcRender(); }
+function mcDelOpt(i){ mcSnap(); if(MC.opts.length>2) MC.opts.splice(i,1); mcRender(); }
+function mcRender(){
   $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
-    <h3>Send to a sustaining vote</h3>
-    <div class="meta" style="margin-top:4px">What kind of matter is this? It sets the bar.</div>
+    <h3>${MC.source?'Send to a sustaining vote':'Put it before the Ward'}</h3>
+    <label>Title</label><input id="mc-title" value="${esc(MC.title)}" placeholder="What are we deciding?">
+    <label>Details</label><textarea id="mc-body" placeholder="Lay it out plainly…">${esc(MC.body)}</textarea>
+    <label>Kind of vote</label>
     <div class="pickrow">
-      <button class="pick on" id="pk-standard" onclick="pickMaj('standard')"><b>Regular rule</b><span>${TH.regular_needed} of ${TH.member_count} to sustain</span></button>
-      <button class="pick" id="pk-structural" onclick="pickMaj('structural')"><b>Sacred matter</b><span>${TH.sacred_needed} of ${TH.member_count} — money, punishments, membership, Commandment X</span></button>
+      <button class="pick${MC.kind==='binary'?' on':''}" onclick="mcKind('binary')"><b>Sustain / Oppose</b><span>yes-or-no on one question</span></button>
+      <button class="pick${MC.kind==='ranked'?' on':''}" onclick="mcKind('ranked')"><b>Ranked choice</b><span>rank the options — instant-runoff decides</span></button>
     </div>
+    ${MC.kind==='binary'?`
+    <label>What kind of matter?</label>
+    <div class="pickrow">
+      <button class="pick${MC.maj==='standard'?' on':''}" onclick="mcMaj('standard')"><b>Regular rule</b><span>${TH.regular_needed} of ${TH.member_count} to sustain</span></button>
+      <button class="pick${MC.maj==='structural'?' on':''}" onclick="mcMaj('structural')"><b>Sacred matter</b><span>${TH.sacred_needed} of ${TH.member_count} — money, punishments, membership, Commandment X</span></button>
+    </div>`:`
+    <label>The options (2–8) — voters rank as many as they like</label>
+    ${MC.opts.map((o,i)=>`<div class="composer"><input id="mc-op-${i}" value="${esc(o)}" placeholder="Option ${i+1}">${MC.opts.length>2?`<button class="btn sm ghost" onclick="mcDelOpt(${i})" title="Remove">×</button>`:''}</div>`).join('')}
+    ${MC.opts.length<8?`<div style="margin-top:8px"><button class="btn sm" onclick="mcAddOpt()">+ Add option</button></div>`:''}`}
     <label>Voting window (days)</label>
-    <input id="pm-days" type="number" min="1" max="30" value="7">
+    <input id="mc-days" type="number" min="1" max="30" value="${esc(MC.days)}">
     <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn gold" onclick="doPromote(${id})">Open the vote</button>
+      <button class="btn gold" onclick="mcSubmit()">Open the vote</button>
       <button class="btn ghost" onclick="closeLogin()">Cancel</button>
     </div>
-    <div id="pm-msg"></div>
+    <div id="mc-msg"></div>
   </div></div></div>`;
 }
-function pickMaj(v){ PMAJ=v; $('pk-standard').classList.toggle('on',v==='standard'); $('pk-structural').classList.toggle('on',v==='structural'); }
-async function doPromote(id){
-  const days = Math.max(1, Math.min(30, parseInt($('pm-days').value,10)||7));
-  const {data:p} = await SB.from('ward_proposals').select('*').eq('id',id).single();
-  const {data:mrow,error} = await SB.from('ward_measures').insert({
-    title:p.title, body:p.body, majority:PMAJ, source_proposal_id:id, created_by:me.email,
-    closes_at:new Date(Date.now()+days*864e5).toISOString()}).select().single();
-  if(error){ $('pm-msg').innerHTML=`<div class="err">${esc(error.message)}</div>`; return; }
-  await SB.from('ward_proposals').update({status:'promoted',measure_id:mrow.id}).eq('id',id);
+async function mcSubmit(){
+  mcSnap();
+  const msg=t=>{ $('mc-msg').innerHTML=`<div class="err">${esc(t)}</div>`; };
+  const title=MC.title.trim(), body=MC.body.trim();
+  const days=Math.max(1,Math.min(30,parseInt(MC.days,10)||7));
+  if(!title) return msg('Give it a title.');
+  const row={title, body, source_proposal_id:MC.source, created_by:me.email,
+             closes_at:new Date(Date.now()+days*864e5).toISOString()};
+  if(MC.kind==='ranked'){
+    const opts=MC.opts.map(o=>o.trim()).filter(Boolean);
+    if(opts.length<2) return msg('Ranked choice needs at least 2 options.');
+    if(new Set(opts.map(o=>o.toLowerCase())).size!==opts.length) return msg('Options must all be different.');
+    row.kind='ranked'; row.options=opts; row.majority='standard';
+  } else { row.kind='binary'; row.majority=MC.maj; }
+  const {data:mrow,error} = await SB.from('ward_measures').insert(row).select().single();
+  if(error) return msg(error.message);
+  if(MC.source) await SB.from('ward_proposals').update({status:'promoted',measure_id:mrow.id}).eq('id',MC.source);
   closeLogin(); toast('The vote is open 🙌');
   render();
 }
 
 // ---------- VOTE ----------
-const majPill = v => `<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?`Sacred matter · ${TH.sacred_needed} of ${TH.member_count}`:`Regular rule · ${TH.regular_needed} of ${TH.member_count}`}</span>`;
-const resPill = v => v.result==='passed'?'<span class="pill green">SUSTAINED</span>':'<span class="pill red">NOT SUSTAINED</span>';
+const majPill = v => v.kind==='ranked'
+  ? `<span class="pill blue">Ranked choice · ${(v.options||[]).length} options</span>`
+  : `<span class="pill ${v.majority==='structural'?'gold':'blue'}">${v.majority==='structural'?`Sacred matter · ${TH.sacred_needed} of ${TH.member_count}`:`Regular rule · ${TH.regular_needed} of ${TH.member_count}`}</span>`;
+const resPill = v => v.kind==='ranked'
+  ? (v.result?`<span class="pill green">🏆 ${esc(v.result)}</span>`:'<span class="pill red">NO BALLOTS</span>')
+  : (v.result==='passed'?'<span class="pill green">SUSTAINED</span>':'<span class="pill red">NOT SUSTAINED</span>');
+function rcRounds(v){
+  if(v.kind!=='ranked'||!v.rc_rounds||!v.rc_rounds.length) return '';
+  return `<div class="thread"><span class="threadlbl">Instant-runoff rounds</span>`+
+    v.rc_rounds.map((r,n)=>`<div class="cmt"><b>Round ${n+1}</b>${r.exhausted?`<span class="meta">${r.exhausted} ballot${r.exhausted>1?'s':''} exhausted</span>`:''}<br>
+      ${Object.entries(r.counts).map(([i,c])=>`${esc(v.options[i])}: <b>${c}</b>`).join(' · ')}<br>
+      ${'winner' in r?`🏆 ${esc(v.options[r.winner])} takes it`:('eliminated' in r?`eliminated: ${esc(v.options[r.eliminated])}`:esc(r.note||''))}</div>`).join('')+`</div>`;
+}
 async function rVote(m){
   if(!me){ m.innerHTML=authBox(); return; }
   if(TARGET){ await rMeasurePage(m, TARGET); return; }
@@ -554,11 +607,12 @@ async function rVote(m){
   const myBallot = id => (mine||[]).find(b=>b.measure_id===id);
   const open=(meas||[]).filter(x=>x.status==='open'), closed=(meas||[]).filter(x=>x.status==='closed');
   const html=[`<h2>Before the Ward</h2>`];
+  if(me.is_commissioner) html.push(`<div style="margin:0 0 12px"><button class="btn sm gold" onclick="createVote()">+ Put a question before the Ward</button></div>`);
   if(!open.length) html.push('<div class="meta" style="padding:8px 2px">Nothing on the ballot. Peace in the Ward.</div>');
   for(const v of open){
     const b=myBallot(v.id);
     html.push(`<div class="card"><h3><a href="#vote/${v.id}" style="color:var(--ink)">${esc(v.title)}</a>${majPill(v)}</h3>
-      <div class="meta">closes ${fmtD(v.closes_at)} · ${b?(b.choice==='yes'?'you sustained 🙌':b.choice==='no'?'you opposed 👎':'you abstained'):'⚠️ awaiting your ballot'}</div>
+      <div class="meta">closes ${fmtD(v.closes_at)} · ${b?(v.kind==='ranked'?'your ranking is in 🗳️':b.choice==='yes'?'you sustained 🙌':b.choice==='no'?'you opposed 👎':'you abstained'):'⚠️ awaiting your ballot'}</div>
       <div style="margin-top:10px"><a class="btn sm ${b?'':'gold'}" href="#vote/${v.id}">${b?'Open →':'Cast your ballot →'}</a></div></div>`);
   }
   if(closed.length){
@@ -567,7 +621,7 @@ async function rVote(m){
       const {data:st} = await SB.rpc('ward_measure_status',{mid:v.id}); const s=(st||[])[0]||{};
       html.push(`<div class="card"><h3 style="color:var(--muted)"><a href="#vote/${v.id}" style="color:var(--muted)">${esc(v.title)}</a> ${resPill(v)}
         ${me.is_commissioner?`<button class="cdel" style="float:right" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button>`:''}</h3>
-        <div class="meta">${s.yes??'?'} sustained · ${s.no??'?'} opposed${(s.abstain||0)>0?` · ${s.abstain} abstained`:''} · needed ${v.majority==='structural'?TH.sacred_needed:TH.regular_needed}</div></div>`);
+        <div class="meta">${v.kind==='ranked'?`winner by instant-runoff · ${s.voted_count??'?'} ballots`:`${s.yes??'?'} sustained · ${s.no??'?'} opposed${(s.abstain||0)>0?` · ${s.abstain} abstained`:''} · needed ${v.majority==='structural'?TH.sacred_needed:TH.regular_needed}`}</div></div>`);
     }
   }
   m.innerHTML=html.join('');
@@ -584,24 +638,39 @@ async function rMeasurePage(m, id){
   const s=(st||[])[0]||{}; const b=(mine||[])[0];
   const need = v.majority==='structural'?TH.sacred_needed:TH.regular_needed;
   const gated = pendingVotes.length>0;
+  const ranked = v.kind==='ranked';
+  if(ranked && v.status==='open') RANKSEL = (b&&Array.isArray(b.ranking))?b.ranking.slice():[];
   m.innerHTML = `
     ${gated?`<div class="gatebar">🗳️ The Ward requires your ballot${pendingVotes.length>1?` — ${pendingVotes.length} votes await`:''}. Everything else unlocks when you’ve voted.</div>`
            :`<button class="backbtn" onclick="go('vote')">← All votes</button>`}
     <div class="card" id="m-${v.id}">
       <h3>${esc(v.title)}${majPill(v)}
         <button class="likebtn" style="float:right" onclick="copyLink('vote/${v.id}')" title="Copy link">🔗</button></h3>
-      <div class="meta">${v.status==='open'?`closes ${fmtD(v.closes_at)} · needs ${need} of ${TH.member_count} to sustain · ballots are secret until it closes`:`closed · needed ${need} of ${TH.member_count}`}</div>
+      <div class="meta">${v.status==='open'
+        ?(ranked?`closes ${fmtD(v.closes_at)} · tap options in your order of preference · ballots are secret until it closes`
+                :`closes ${fmtD(v.closes_at)} · needs ${need} of ${TH.member_count} to sustain · ballots are secret until it closes`)
+        :(ranked?`closed · decided by instant-runoff`:`closed · needed ${need} of ${TH.member_count}`)}</div>
       <div class="body-md">${md(v.body)}</div>
-      ${v.status==='open'?`
+      ${v.status==='open'?(ranked?`
+        <div id="rankwrap" style="margin-top:12px">
+          ${v.options.map((o,i)=>{const p=RANKSEL.indexOf(i);return `<button class="rankopt${p>=0?' on':''}" onclick="toggleRank(${i})"><span class="rk">${p>=0?p+1:'○'}</span>${esc(o)}</button>`;}).join('')}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn gold" id="rank-cast" onclick="castRanked(${v.id})" ${RANKSEL.length?'':'disabled'}>Cast ballot</button>
+          <button class="btn ghost" onclick="clearRank()">Clear</button>
+        </div>
+        ${b?'<div class="ok">Ballot recorded — retap to reorder anytime before it closes.</div>':'<div class="meta" style="margin-top:8px">1 = your first choice. Rank as many or as few as you like — if your top pick is eliminated, your ballot moves to the next.</div>'}`
+      :`
         <div class="voterow2">
           <button class="btn${b&&b.choice==='yes'?' sel-yes':''}" onclick="cast(${v.id},'yes')">🙌 Sustain${b&&b.choice==='yes'?'ed':''}</button>
           <button class="btn${b&&b.choice==='no'?' sel-no':''}" onclick="cast(${v.id},'no')">👎 Oppose${b&&b.choice==='no'?'d':''}</button>
         </div>
-        ${b?'<div class="ok">Ballot recorded — you can change it until the vote closes.</div>':''}`
-      : `<div class="tally" style="margin-top:14px"><div><b style="color:var(--good)">${s.yes??'?'}</b>Sustained</div><div><b style="color:var(--bad)">${s.no??'?'}</b>Opposed</div></div>
-         <div style="margin-top:12px">${resPill(v)}</div>`}
+        ${b?'<div class="ok">Ballot recorded — you can change it until the vote closes.</div>':''}`)
+      : (ranked?`<div style="margin-top:14px">${resPill(v)}</div>${rcRounds(v)}`
+               :`<div class="tally" style="margin-top:14px"><div><b style="color:var(--good)">${s.yes??'?'}</b>Sustained</div><div><b style="color:var(--bad)">${s.no??'?'}</b>Opposed</div></div>
+         <div style="margin-top:12px">${resPill(v)}</div>`)}
       <div class="chips">${s.voted_count||0}/${s.member_count||10} ballots in${(s.voters||[]).length?': '+s.voters.map(n=>`<span class="c">${esc(n)}</span>`).join(''):''}</div>
-      ${v.status==='open'&&s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Sustained</div><div><b style="color:var(--bad)">${s.no}</b>Opposed</div></div>`:''}
+      ${v.status==='open'&&!ranked&&s.revealed?`<div class="tally"><div><b style="color:var(--good)">${s.yes}</b>Sustained</div><div><b style="color:var(--bad)">${s.no}</b>Opposed</div></div>`:''}
       ${me.is_commissioner?`<div style="margin-top:12px">${v.status==='open'?`<button class="btn sm gold" onclick="closeMeasure(${v.id})">Close the vote</button> `:''}
         <button class="btn sm ghost" onclick="delMeasure(${v.id})" title="Delete forever">🗑</button></div>`:''}
       <div class="thread"><span class="threadlbl">Discussion</span>
@@ -613,20 +682,44 @@ async function rMeasurePage(m, id){
       </div>
     </div>`;
 }
-async function cast(mid,choice){
-  const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice});
-  if(error){ toast(error.message,3500); return; }
+async function advanceAfterCast(doneMsg){
   await refreshMe();
   const next = pendingVotes[0];
   if(next){ toast('Recorded. Next vote →'); TAB='vote'; TARGET=String(next.id); history.replaceState(null,'','#vote/'+next.id); }
-  else { toast(choice==='yes'?'Sustained 🙌':'Recorded 👎'); }
+  else { toast(doneMsg); }
   render();
+}
+async function cast(mid,choice){
+  const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice,ranking:null});
+  if(error){ toast(error.message,3500); return; }
+  advanceAfterCast(choice==='yes'?'Sustained 🙌':'Recorded 👎');
+}
+let RANKSEL=[];
+function toggleRank(i){
+  const p=RANKSEL.indexOf(i);
+  if(p>=0) RANKSEL.splice(p,1); else RANKSEL.push(i);
+  syncRankUI();
+}
+function clearRank(){ RANKSEL=[]; syncRankUI(); }
+function syncRankUI(){
+  document.querySelectorAll('#rankwrap .rankopt').forEach((el,j)=>{
+    const q=RANKSEL.indexOf(j);
+    el.classList.toggle('on',q>=0);
+    el.querySelector('.rk').textContent = q>=0?q+1:'○';
+  });
+  const cb=$('rank-cast'); if(cb) cb.disabled=!RANKSEL.length;
+}
+async function castRanked(mid){
+  if(!RANKSEL.length) return;
+  const {error} = await SB.from('ward_ballots').upsert({measure_id:mid,email:me.email,choice:null,ranking:RANKSEL});
+  if(error){ toast(error.message,3500); return; }
+  advanceAfterCast('Ballot cast 🗳️');
 }
 async function closeMeasure(mid){
   if(!await wardConfirm({title:'Close this vote?', body:'The result computes now, and ballots are final.', ok:'Close & compute', okClass:'gold'})) return;
   const {data,error} = await SB.rpc('ward_close_measure',{mid});
   if(error) toast(error.message,3500);
-  else toast(data==='passed'?'SUSTAINED 🙌':'NOT SUSTAINED 👎',3000);
+  else toast(data==='passed'?'SUSTAINED 🙌':data==='failed'?'NOT SUSTAINED 👎':data?'🏆 Winner: '+data:'Closed — no ballots were cast',3000);
   render();
 }
 
