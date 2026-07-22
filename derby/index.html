@@ -27,20 +27,7 @@
   body{background:var(--page); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.45;}
   .wrap{max-width:720px; margin:0 auto; padding:16px 16px 48px;}
   a{color:#86b6ef; text-decoration:none;}
-  header.top{display:flex; align-items:center; justify-content:space-between; padding:10px 0 4px;}
-  .brand{font-weight:800; font-size:18px; letter-spacing:-.01em; color:var(--ink);}
-  .brand .bsub{display:block; font-size:10px; letter-spacing:.22em; color:var(--gold); text-transform:uppercase; font-weight:700;}
-  nav.sitetabs{display:flex; gap:4px; margin:12px 0 8px; border-bottom:1px solid var(--grid); padding-bottom:10px; flex-wrap:wrap;}
-  .stab{font-size:13px; color:var(--muted); padding:7px 13px; border-radius:999px; border:1px solid transparent;}
-  .stab.on{color:var(--ink); background:var(--surface); border-color:var(--ring); font-weight:700;}
-  .stab.urgent{background:var(--gold); color:#140f02; border-color:var(--gold); font-weight:800; animation:stabpulse 1.6s ease-in-out infinite;}
-  @keyframes stabpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}
-  /* header chip — IDENTICAL to the hub's .pchip/.avatar/.pill. One header design, two pages. */
-  .pchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:5px 12px 5px 6px;color:var(--ink);font-size:13px;font-weight:700;text-decoration:none;}
-  .avatar{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#140f02;font-weight:800;align-items:center;justify-content:center;font-size:14px;}
-  .pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;border:1px solid var(--ring);color:var(--ink2);background:var(--surface2);margin-left:6px;vertical-align:1px;}
-  .pill.gold{color:var(--goldbright);border-color:rgba(201,133,0,.45);background:rgba(201,133,0,.12);}
-  .btnc{display:inline-block;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--accent);border:1px solid var(--accent);color:#fff;text-decoration:none;}
+  /* header/nav/chip styles come from ../shell.js — the ONE header engine shared with the hub */
   header.hero{text-align:center; padding:22px 0 18px;}
   .kicker{font-size:12px; letter-spacing:.24em; color:var(--gold); text-transform:uppercase; font-weight:700;}
   h1{font-size:34px; font-weight:800; letter-spacing:-.01em; margin:6px 0 2px;}
@@ -101,9 +88,6 @@
   .vbtn{display:block; width:100%; margin-top:12px; padding:9px; border-radius:10px; border:1px solid var(--ring); background:var(--surface2); color:var(--muted); font-size:12.5px; font-weight:700; text-align:center; cursor:default;}
   .vbtn.on{color:var(--goldbright); border-color:rgba(201,133,0,.4); cursor:pointer;}
   .vresult{margin-top:10px; font-size:12.5px; display:none;}
-  nav.tabs{display:flex; gap:6px; justify-content:center; margin-top:34px; border-top:1px solid var(--grid); padding-top:16px;}
-  .tab{font-size:12.5px; color:var(--muted); padding:7px 14px; border-radius:999px; border:1px solid transparent; text-decoration:none;}
-  .tab.on{color:var(--ink); background:var(--surface); border-color:var(--ring); font-weight:700;}
   footer{margin-top:14px; text-align:center; font-size:11px; color:var(--muted);}
   .hidden{display:none;}
 </style>
@@ -111,17 +95,12 @@
 <body>
 <div class="wrap">
   <header class="top">
-    <a class="brand" href="../">The 69th Ward<span class="bsub">Est. 2022 · Fantasy Football</span></a>
+    <a class="brand" href="../">The 69th Ward<span class="sub">Est. 2022 · Fantasy Football</span></a>
     <div id="who"></div>
   </header>
-  <nav class="sitetabs">
-    <a class="stab" href="../#home">Home</a>
-    <span class="stab on">Draft Derby</span>
-    <a class="stab" href="../#proposals">Proposals</a>
-    <a class="stab" id="stab-vote" href="../#vote">Vote</a>
-    <a class="stab" href="../#rules">Commandments</a>
-    <a class="stab" href="../#history">Church History</a>
-  </nav>
+  <nav class="tabs" id="tabs"></nav>
+  <script>window.WARD_SHELL={mode:'static',active:'derby',prefix:'../'};</script>
+  <script src="../shell.js?v=20260722a"></script>
   <header class="hero">
     <div class="kicker">The Draft Order · Decided Live</div>
     <h1>Draft Derby</h1>
@@ -181,23 +160,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-// ── ward shell ─────────────────────────────────────────────────────────────
-// The hub maintains a same-origin cache of {name, commissioner, pending votes}.
-// We paint the header from it SYNCHRONOUSLY (no flicker, no size pop on
-// navigation), then verify against the live session and repaint only if the
-// truth actually differs. The hub does the same on its side.
-function wardShell(){ try{ return JSON.parse(localStorage.getItem('wardShell')||'null'); }catch(e){ return null; } }
-function wardChipHTML(s){
-  if(!(s&&s.n)) return `<a class="btnc" href="../?signin=1">Sign in</a>`;
-  const n=String(s.n).replace(/[<>&"]/g,'');
-  return `<a class="pchip" href="../#home"><span class="avatar">${n[0]||'?'}</span>${n}${s.c?' <span class="pill gold" style="margin-left:2px">C</span>':''}</a>`;
-}
-function wardVoteTab(s){
-  const sv=document.getElementById('stab-vote'); if(!sv) return;
-  if(s&&s.n&&s.p>0){ sv.classList.add('urgent'); sv.textContent=`🗳️ Vote · ${s.p}`; }
-  else { sv.classList.remove('urgent'); sv.textContent='Vote'; sv.href='../#vote'; }
-}
-(function(){ const s=wardShell(); document.getElementById('who').innerHTML=wardChipHTML(s); wardVoteTab(s); })();
+// Live reconcile: the shell already painted the header from cache at parse time.
+// Verify against the real session; refresh the cache; repaint ONLY if truth differs.
 (async function(){
   try{
     const SBW = supabase.createClient('https://wdfkzkkcyhzrbmipgiil.supabase.co','sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m');
@@ -218,16 +182,16 @@ function wardVoteTab(s){
         firstPending = pending.length?pending[0].id:null;
       }
     }
-    const o=wardShell();
+    const o = WardShell.cache();
     const same = JSON.stringify(s) === JSON.stringify(o&&{n:o.n,c:o.c,p:o.p});
-    if(s) localStorage.setItem('wardShell',JSON.stringify(s)); else localStorage.removeItem('wardShell');
-    if(!same){ document.getElementById('who').innerHTML=wardChipHTML(s); wardVoteTab(s); }
-    if(firstPending){ const sv=document.getElementById('stab-vote'); if(sv) sv.href='../#vote/'+firstPending; }
+    WardShell.saveCache(s);
+    if(!same) WardShell.render(s,'derby');
+    if(firstPending){ const u=document.querySelector('nav.tabs .tab.urgent'); if(u) u.href='../#vote/'+firstPending; }
   }catch(e){}
 })();
 </script>
 <script>
-const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jackson", "Kirk", "Bryson", "Luke", "Cam"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-21", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-11", "lock_start": "2026-08-21", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "surge"], ["2026-08-12", "surge"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "lock"], ["2026-08-22", "lock"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-21T20:59:48.779325-06:00"};
+const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jackson", "Kirk", "Bryson", "Luke", "Cam"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-22", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-11", "lock_start": "2026-08-21", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "surge"], ["2026-08-12", "surge"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "lock"], ["2026-08-22", "lock"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-22T11:42:50.214706-06:00"};
 const CFG = DATA.cfg, MANAGERS = CFG.managers;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
