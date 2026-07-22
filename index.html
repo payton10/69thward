@@ -15,7 +15,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://payton10.github.io/69thward/">
 <meta name="twitter:card" content="summary">
-<link rel="stylesheet" href="shell.css?v=20260722b">
+<link rel="stylesheet" href="shell.css?v=20260722c">
 <style>
   /* PAGE-SPECIFIC styles only. Tokens, base, header, cards, pills, buttons,
      and the footer live in shell.css — shared with the Derby page. */
@@ -118,7 +118,7 @@
   </header>
   <nav class="tabs" id="tabs"></nav>
   <script>window.WARD_SHELL={mode:'hub'};</script>
-  <script src="shell.js?v=20260722b"></script>
+  <script src="shell.js?v=20260722c"></script>
   <main id="main"><div class="loading">Loading…</div></main>
   <footer id="foot"></footer>
 </div>
@@ -233,27 +233,12 @@ async function refreshMe(){
   members=mem; me=me2; pendingVotes=pending2;
   WardShell.saveCache(shellState());  // the Derby page first-paints its identical header from this
 }
-let menuOpen=false;
-function fmtPhone(d){ d=(d||'').replace(/^1/,''); return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:d; }
+const fmtPhone = WardShell.fmtPhone;  // shared with the shell's profile menu
 function drawWho(){
-  if(me){
-    $('who').innerHTML = WardShell.chipHTML(shellState())
-      + `${menuOpen?`<div class="pmenu">
-        <b>${esc(me.name)}</b>${me.is_commissioner?' <span class="pill gold">Commissioner</span>':''}
-        <div class="meta">📱 ${fmtPhone(me.phone)}</div>
-        <div class="meta" style="margin-top:6px">✉️ ${esc(me.contact_email||'no email on file')}</div>
-        <div class="meta" style="margin-top:4px;font-size:10.5px">Password resets go to this email. Need it changed? Tell the commissioner.</div>
-        ${me.is_commissioner?`<div style="margin-top:10px"><button class="btn sm" onclick="menuOpen=false;go('members')">👥 Manage the Ward</button></div>`:''}
-        <div style="margin-top:10px"><button class="btn sm ghost" onclick="signOut()">Sign out</button></div>
-      </div>`:''}`;
-  } else if(session){
-    $('who').innerHTML = `<button class="btn sm ghost" onclick="signOut()">Sign out</button>`;
-  } else {
-    $('who').innerHTML = WardShell.chipHTML(null);
-  }
+  if(me) WardShell.renderWho(shellState(), me);                 // shell draws the identical chip + menu on both pages
+  else if(session) $('who').innerHTML = `<button class="btn sm ghost" onclick="WardShell.signOut()">Sign out</button>`;  // signed in, not on the roster
+  else WardShell.renderWho(null, null);                          // signed out → Sign in button
 }
-function toggleMenu(){ menuOpen=!menuOpen; drawWho(); }
-async function signOut(){ WardShell.saveCache(null); await SB.auth.signOut(); location.reload(); }
 
 // ---------- render root ----------
 // Same-view re-renders (likes, comments, blessings, ballots) keep the old DOM on screen

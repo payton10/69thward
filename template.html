@@ -15,7 +15,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://payton10.github.io/69thward/derby/">
 <meta name="twitter:card" content="summary">
-<link rel="stylesheet" href="../shell.css?v=20260722b">
+<link rel="stylesheet" href="../shell.css?v=20260722c">
 <style>
   /* PAGE-SPECIFIC styles only. Tokens, base, header, cards, pills, buttons,
      and the footer live in ../shell.css — shared with the hub. */
@@ -84,11 +84,11 @@
 <div class="wrap">
   <header class="top">
     <a class="brand" href="../">The 69th Ward<span class="sub">Est. 2022 · Fantasy Football</span></a>
-    <div id="who"></div>
+    <div class="who-wrap" id="who"></div>
   </header>
   <nav class="tabs" id="tabs"></nav>
   <script>window.WARD_SHELL={mode:'static',active:'derby',prefix:'../'};</script>
-  <script src="../shell.js?v=20260722b"></script>
+  <script src="../shell.js?v=20260722c"></script>
   <header class="hero">
     <div class="kicker">The Draft Order · Decided Live</div>
     <h1>Draft Derby</h1>
@@ -154,7 +154,7 @@
   try{
     const SBW = supabase.createClient(WardShell.SUPA.url, WardShell.SUPA.key);
     const {data:{session}} = await SBW.auth.getSession();
-    let s=null, firstPending=null;
+    let s=null, member=null, firstPending=null;
     if(session){
       const {data:mem} = await SBW.from('ward_members').select('name,email,phone,contact_email,is_commissioner');
       const me = WardShell.matchMember(mem, session.user.email);  // the ONE matching rule, shared with the hub
@@ -166,13 +166,13 @@
         const voted = new Set((mine||[]).map(b=>b.measure_id));
         const pending = (open||[]).filter(m=>!voted.has(m.id));
         s = {n:me.name, c:!!me.is_commissioner, p:pending.length};
+        member = {name:me.name, phone:me.phone, contact_email:me.contact_email, is_commissioner:me.is_commissioner};
         firstPending = pending.length?pending[0].id:null;
       }
     }
-    const o = WardShell.cache();
-    const same = JSON.stringify(s) === JSON.stringify(o&&{n:o.n,c:o.c,p:o.p});
     WardShell.saveCache(s);
-    if(!same) WardShell.render(s,'derby');
+    WardShell.renderWho(s, member);                                        // full member → identical working menu
+    document.getElementById('tabs').innerHTML = WardShell.tabsHTML(s,'derby');  // refresh urgent vote count
     if(firstPending){ const u=document.querySelector('nav.tabs .tab.urgent'); if(u) u.href='../#vote/'+firstPending; }
   }catch(e){}
 })();

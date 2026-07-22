@@ -45,15 +45,63 @@
     document.body.appendChild(d); setTimeout(function(){ d.remove(); }, ms||1800);
   }
 
+  /* ── profile: chip + dropdown menu — ONE implementation, both pages ──
+     The chip label/badge come from the lightweight shell cache {n,c}; the menu's
+     phone/email come from the full member object (set once it's fetched). The menu
+     is fully interactive on BOTH pages: info, Manage the Ward (commish), Sign out. */
+  var _menuOpen=false, _lastShell=null, _member=null;
+
+  function fmtPhone(d){ d=(d||'').replace(/^1/,''); return d.length===10 ? '('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6) : (d||''); }
+
+  function signInHTML(){
+    return HUB ? '<button class="btn sm primary" onclick="window.openLogin&&openLogin(\'in\')">Sign in</button>'
+               : '<a class="btn sm primary" href="'+PREFIX+'?signin=1">Sign in</a>';
+  }
+  // chipHTML kept for back-compat: chip only, no menu.
   function chipHTML(s){
-    if(!(s && s.n)){
-      return HUB ? '<button class="btn sm primary" onclick="window.openLogin&&openLogin(\'in\')">Sign in</button>'
-                 : '<a class="btn sm primary" href="'+PREFIX+'?signin=1">Sign in</a>';
-    }
-    var n = esc(s.n);
-    var inner = '<span class="avatar">'+(n[0]||'?')+'</span>'+n+(s.c?' <span class="pill gold">C</span>':'');
-    return HUB ? '<button class="pchip" onclick="window.toggleMenu&&toggleMenu()">'+inner+'</button>'
+    if(!(s && s.n)) return signInHTML();
+    var n=esc(s.n);
+    var inner='<span class="avatar">'+(n[0]||'?')+'</span>'+n+(s.c?' <span class="pill gold">C</span>':'');
+    return HUB ? '<button class="pchip" onclick="window.WardShell.toggleMenu()">'+inner+'</button>'
                : '<a class="pchip" href="'+PREFIX+'#home">'+inner+'</a>';
+  }
+
+  function menuHTML(m){
+    var n=esc(m.name);
+    return '<div class="pmenu">'
+      + '<b>'+n+'</b>'+(m.is_commissioner?' <span class="pill gold">Commissioner</span>':'')
+      + '<div class="meta" style="margin-top:6px">📱 '+esc(fmtPhone(m.phone))+'</div>'
+      + '<div class="meta" style="margin-top:6px">✉️ '+esc(m.contact_email||'no email on file')+'</div>'
+      + '<div class="meta" style="margin-top:4px;font-size:10.5px">Password resets go to this email. Need it changed? Tell the commissioner.</div>'
+      + (m.is_commissioner ? '<div style="margin-top:10px"><a class="btn sm" href="'+PREFIX+'#members" onclick="window.WardShell.closeMenu(1)">👥 Manage the Ward</a></div>' : '')
+      + '<div style="margin-top:10px"><button class="btn sm ghost" onclick="window.WardShell.signOut()">Sign out</button></div>'
+      + '</div>';
+  }
+
+  function whoHTML(s, member, open){
+    if(!(s && s.n)) return signInHTML();
+    var m = member || {name:s.n, is_commissioner:s.c, phone:'', contact_email:''};
+    var n=esc(m.name);
+    var chip='<button class="pchip" onclick="window.WardShell.toggleMenu()"><span class="avatar">'+(n[0]||'?')+'</span>'+n+(m.is_commissioner?' <span class="pill gold">C</span>':'')+'</button>';
+    return chip + (open ? menuHTML(m) : '');
+  }
+
+  // renderWho: draw the top-right profile area. shell = {n,c,p} (cache shape);
+  // member = full roster row (or null). Also stashes state so toggleMenu can repaint.
+  function renderWho(shell, member){
+    _lastShell = shell; if(member !== undefined) _member = member;
+    var who=document.getElementById('who'); if(!who) return;
+    who.innerHTML = whoHTML(shell, _member, _menuOpen);
+  }
+  function toggleMenu(){ _menuOpen=!_menuOpen; renderWho(_lastShell, _member); }
+  function closeMenu(noRepaint){ _menuOpen=false; if(!noRepaint) renderWho(_lastShell, _member); }  // noRepaint: nav link sets the flag, the page's own render repaints
+  function signOut(){
+    _menuOpen=false; saveCache(null);
+    var reload=function(){ location.reload(); };
+    try{
+      var c = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPA.url, SUPA.key) : null;
+      if(c && c.auth && c.auth.signOut){ Promise.resolve(c.auth.signOut()).then(reload, reload); } else reload();
+    }catch(e){ reload(); }
   }
 
   function tabsHTML(s, active){
@@ -68,8 +116,8 @@
   }
 
   function render(s, active){
-    var who=document.getElementById('who'), tabs=document.getElementById('tabs');
-    if(who) who.innerHTML = chipHTML(s);
+    renderWho(s);  // chip from cache; menu details fill in when a member is set
+    var tabs=document.getElementById('tabs');
     if(tabs) tabs.innerHTML = tabsHTML(s, active);
     var f=document.getElementById('foot');
     if(f && !f.textContent) f.textContent = FOOTER;
@@ -83,6 +131,7 @@
   });
 
   window.WardShell = { render:render, chipHTML:chipHTML, tabsHTML:tabsHTML,
+                       renderWho:renderWho, toggleMenu:toggleMenu, closeMenu:closeMenu, signOut:signOut, fmtPhone:fmtPhone,
                        cache:cache, saveCache:saveCache, matchMember:matchMember,
                        esc:esc, toast:toast, SUPA:SUPA, FOOTER:FOOTER, TABS:TABS };
 })();
