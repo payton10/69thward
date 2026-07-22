@@ -35,9 +35,12 @@
   .stab.on{color:var(--ink); background:var(--surface); border-color:var(--ring); font-weight:700;}
   .stab.urgent{background:var(--gold); color:#140f02; border-color:var(--gold); font-weight:800; animation:stabpulse 1.6s ease-in-out infinite;}
   @keyframes stabpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}
-  .whobtn{display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--ring); border-radius:999px; padding:5px 12px; color:var(--ink); font-size:13px; font-weight:700;}
-  .whobtn .av{display:inline-flex; width:24px; height:24px; border-radius:50%; background:var(--gold); color:#140f02; font-weight:800; align-items:center; justify-content:center; font-size:12px;}
-  .whobtn.cta{background:var(--accent); border-color:var(--accent); color:#fff;}
+  /* header chip — IDENTICAL to the hub's .pchip/.avatar/.pill. One header design, two pages. */
+  .pchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:5px 12px 5px 6px;color:var(--ink);font-size:13px;font-weight:700;text-decoration:none;}
+  .avatar{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#140f02;font-weight:800;align-items:center;justify-content:center;font-size:14px;}
+  .pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;border:1px solid var(--ring);color:var(--ink2);background:var(--surface2);margin-left:6px;vertical-align:1px;}
+  .pill.gold{color:var(--goldbright);border-color:rgba(201,133,0,.45);background:rgba(201,133,0,.12);}
+  .btnc{display:inline-block;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--accent);border:1px solid var(--accent);color:#fff;text-decoration:none;}
   header.hero{text-align:center; padding:22px 0 18px;}
   .kicker{font-size:12px; letter-spacing:.24em; color:var(--gold); text-transform:uppercase; font-weight:700;}
   h1{font-size:34px; font-weight:800; letter-spacing:-.01em; margin:6px 0 2px;}
@@ -178,40 +181,53 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-// shared session chip (same origin as the hub -> same stored session)
+// ── ward shell ─────────────────────────────────────────────────────────────
+// The hub maintains a same-origin cache of {name, commissioner, pending votes}.
+// We paint the header from it SYNCHRONOUSLY (no flicker, no size pop on
+// navigation), then verify against the live session and repaint only if the
+// truth actually differs. The hub does the same on its side.
+function wardShell(){ try{ return JSON.parse(localStorage.getItem('wardShell')||'null'); }catch(e){ return null; } }
+function wardChipHTML(s){
+  if(!(s&&s.n)) return `<a class="btnc" href="../?signin=1">Sign in</a>`;
+  const n=String(s.n).replace(/[<>&"]/g,'');
+  return `<a class="pchip" href="../#home"><span class="avatar">${n[0]||'?'}</span>${n}${s.c?' <span class="pill gold" style="margin-left:2px">C</span>':''}</a>`;
+}
+function wardVoteTab(s){
+  const sv=document.getElementById('stab-vote'); if(!sv) return;
+  if(s&&s.n&&s.p>0){ sv.classList.add('urgent'); sv.textContent=`🗳️ Vote · ${s.p}`; }
+  else { sv.classList.remove('urgent'); sv.textContent='Vote'; sv.href='../#vote'; }
+}
+(function(){ const s=wardShell(); document.getElementById('who').innerHTML=wardChipHTML(s); wardVoteTab(s); })();
 (async function(){
-  const who = document.getElementById('who');
   try{
     const SBW = supabase.createClient('https://wdfkzkkcyhzrbmipgiil.supabase.co','sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m');
     const {data:{session}} = await SBW.auth.getSession();
+    let s=null, firstPending=null;
     if(session){
       const uem=(session.user.email||'').toLowerCase();
       const {data:mem} = await SBW.from('ward_members').select('name,email,contact_email,is_commissioner');
       const me=(mem||[]).find(m=>m.email===uem||(m.contact_email||'').toLowerCase()===uem);
-      const nm = me? me.name : 'You';
-      who.innerHTML = `<a class="whobtn" href="../#home"><span class="av">${nm[0]}</span>${nm}</a>`;
-      if(me){  // live vote badge — same signal as the hub's gold Vote tab
+      if(me){
         const [{data:open},{data:mine}] = await Promise.all([
           SBW.from('ward_measures').select('id').eq('status','open'),
           SBW.from('ward_ballots').select('measure_id'),
         ]);
         const voted = new Set((mine||[]).map(b=>b.measure_id));
         const pending = (open||[]).filter(m=>!voted.has(m.id));
-        const sv = document.getElementById('stab-vote');
-        if(sv && pending.length){
-          sv.classList.add('urgent');
-          sv.textContent = `🗳️ Vote · ${pending.length}`;
-          sv.href = '../#vote/'+pending[0].id;
-        }
+        s = {n:me.name, c:!!me.is_commissioner, p:pending.length};
+        firstPending = pending.length?pending[0].id:null;
       }
-    } else {
-      who.innerHTML = `<a class="whobtn cta" href="../?signin=1#home">Sign in</a>`;
     }
-  }catch(e){ who.innerHTML=''; }
+    const o=wardShell();
+    const same = JSON.stringify(s) === JSON.stringify(o&&{n:o.n,c:o.c,p:o.p});
+    if(s) localStorage.setItem('wardShell',JSON.stringify(s)); else localStorage.removeItem('wardShell');
+    if(!same){ document.getElementById('who').innerHTML=wardChipHTML(s); wardVoteTab(s); }
+    if(firstPending){ const sv=document.getElementById('stab-vote'); if(sv) sv.href='../#vote/'+firstPending; }
+  }catch(e){}
 })();
 </script>
 <script>
-const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jackson", "Kirk", "Bryson", "Luke", "Cam"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-21", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-11", "lock_start": "2026-08-21", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "surge"], ["2026-08-12", "surge"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "lock"], ["2026-08-22", "lock"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-21T20:47:35.377069-06:00"};
+const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jackson", "Kirk", "Bryson", "Luke", "Cam"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-21", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-11", "lock_start": "2026-08-21", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "surge"], ["2026-08-12", "surge"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "lock"], ["2026-08-22", "lock"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-21T20:59:48.779325-06:00"};
 const CFG = DATA.cfg, MANAGERS = CFG.managers;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));

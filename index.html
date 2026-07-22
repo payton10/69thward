@@ -157,6 +157,24 @@
     <div class="who-wrap" id="who"></div>
   </header>
   <nav class="tabs" id="tabs"></nav>
+  <script>
+  // instant header from the shared shell cache (same key the Derby page uses) —
+  // paints before any network work; the app re-renders identical markup from live state on boot.
+  (function(){
+    let s=null; try{ s=JSON.parse(localStorage.getItem('wardShell')||'null'); }catch(e){}
+    const n=s&&s.n?String(s.n).replace(/[<>&"]/g,''):null;
+    document.getElementById('who').innerHTML = n
+      ? `<button class="pchip" onclick="window.toggleMenu&&toggleMenu()"><span class="avatar">${n[0]||'?'}</span>${n}${s.c?' <span class="pill gold" style="margin-left:2px">C</span>':''}</button>`
+      : `<button class="btn sm primary" onclick="window.openLogin&&openLogin('in')">Sign in</button>`;
+    const showDerby = new Date() < new Date('2026-09-03T00:00:00-06:00');  // keep in sync with DERBY_HIDE
+    const cur=(location.hash.slice(1).split('/')[0])||'home';
+    const t=(k,l)=>`<a class="tab${cur===k?' on':''}" href="#${k}">${l}</a>`;
+    document.getElementById('tabs').innerHTML =
+      t('home','Home') + (showDerby?`<a class="tab" href="derby/">Draft Derby</a>`:'') + t('proposals','Proposals')
+      + (n&&s.p>0?`<a class="tab urgent${cur==='vote'?' on':''}" href="#vote">🗳️ Vote · ${s.p}</a>`:t('vote','Vote'))
+      + t('rules','Commandments') + t('history','Church History');
+  })();
+  </script>
   <main id="main"><div class="loading">Loading…</div></main>
   <footer>The 69th Ward · Buy-in $20 + $2/loss · Playoff loser eats the herring 🐟</footer>
 </div>
@@ -262,7 +280,7 @@ async function refreshMe(){
   // Builds into locals, swaps shared state at the END — an in-flight render must never
   // see me/members half-cleared (that race threw "null is not an object (me.is_commissioner)").
   try{ const {data:th} = await SB.rpc('ward_thresholds'); if(th&&th[0]) TH=th[0]; }catch(e){}
-  if(!session){ me=null; members=[]; pendingVotes=[]; return; }
+  if(!session){ me=null; members=[]; pendingVotes=[]; try{ localStorage.removeItem('wardShell'); }catch(e){} return; }
   const {data:mem} = await SB.from('ward_members').select('*');
   if(!mem) return;   // transient fetch failure (token refresh moment, flaky signal): keep last known state
   const uem = (session.user.email||'').toLowerCase();
@@ -276,6 +294,10 @@ async function refreshMe(){
     pending2 = (open||[]).filter(m=>!voted.has(m.id));
   }
   members=mem; me=me2; pendingVotes=pending2;
+  try{  // shared shell cache: the Derby page paints its identical header from this
+    if(me) localStorage.setItem('wardShell', JSON.stringify({n:me.name, c:!!me.is_commissioner, p:pendingVotes.length}));
+    else localStorage.removeItem('wardShell');
+  }catch(e){}
 }
 let menuOpen=false;
 function fmtPhone(d){ d=(d||'').replace(/^1/,''); return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:d; }
@@ -296,7 +318,7 @@ function drawWho(){
   }
 }
 function toggleMenu(){ menuOpen=!menuOpen; drawWho(); }
-async function signOut(){ await SB.auth.signOut(); location.reload(); }
+async function signOut(){ try{ localStorage.removeItem('wardShell'); }catch(e){} await SB.auth.signOut(); location.reload(); }
 
 // ---------- render root ----------
 async function render(){
