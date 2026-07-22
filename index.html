@@ -162,7 +162,10 @@ function toast(t){ const d=document.createElement('div'); d.textContent=t;
 async function boot(){
   parseHash();
   const {data:{session:s}} = await SB.auth.getSession(); session=s;
-  SB.auth.onAuthStateChange((_e,s2)=>{ session=s2; refreshMe().then(render); });
+  SB.auth.onAuthStateChange((ev,s2)=>{
+    if(ev!=='SIGNED_IN' && ev!=='SIGNED_OUT' && ev!=='USER_UPDATED') return;  // ignore INITIAL_SESSION/TOKEN_REFRESHED (boot renders once; refreshes must not re-render mid-use)
+    session=s2; refreshMe().then(render);
+  });
   await refreshMe();
   render();
   if(new URLSearchParams(location.search).has('signin') && !session){
