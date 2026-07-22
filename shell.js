@@ -1,53 +1,57 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   WARD SHELL — the ONE header engine. The hub (index.html) and the Derby
-   (derby/index.html via template.html) both load THIS file. Styles, markup,
-   cached first-paint, and the renderer live here and nowhere else.
+   WARD SHELL — shared logic. Loaded by BOTH pages (hub index.html and the
+   Derby via template.html). Everything common lives here, once:
 
-   Page config (set BEFORE this script loads):
-     window.WARD_SHELL = { mode:'hub' }                             // the hub SPA
+     · header renderer (chip + tabs) with synchronous cached first-paint
+     · the shell cache contract   (localStorage 'wardShell' = {n,c,p})
+     · Supabase project constants (WardShell.SUPA)
+     · the member-matching rule   (WardShell.matchMember)
+     · esc(), toast(), the footer line
+
+   Styles live in shell.css (linked in each page's <head>).
+   Page config, set BEFORE this script loads:
+     window.WARD_SHELL = { mode:'hub' }                                   // hub SPA
      window.WARD_SHELL = { mode:'static', active:'derby', prefix:'../' }  // derby
 
-   Cache contract (localStorage 'wardShell'): {n:name, c:isCommish, p:pendingVotes}
-   — written by the hub's refreshMe and the derby's reconciler via saveCache().
-
-   ⚠️ When you edit this file, bump the ?v= on BOTH script tags
-      (index.html + template.html) so GitHub Pages caches roll over.
+   ⚠️ When you edit this file (or shell.css), bump the ?v= on the <link> and
+      <script> tags in BOTH index.html and template.html (Pages caching).
    ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
-  var CSS = [
-    'header.top{display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px}',
-    '.brand{font-weight:800;font-size:18px;letter-spacing:-.01em;color:var(--ink);text-decoration:none;display:block}',
-    '.brand .sub{display:block;font-size:10px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;font-weight:700}',
-    'nav.tabs{display:flex;gap:4px;margin:12px 0 20px;border-bottom:1px solid var(--grid);padding-bottom:10px;flex-wrap:wrap}',
-    '.tab{font-size:13px;color:var(--muted);padding:7px 13px;border-radius:999px;border:1px solid transparent;cursor:pointer;background:none;text-decoration:none;display:inline-block;font-family:inherit}',
-    '.tab.on{color:var(--ink);background:var(--surface);border-color:var(--ring);font-weight:700}',
-    '.tab.urgent{background:var(--gold);color:#140f02;border-color:var(--gold);font-weight:800;animation:wardpulse 1.6s ease-in-out infinite}',
-    '.tab.urgent.on{background:var(--goldbright);border-color:var(--goldbright)}',
-    '@keyframes wardpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}',
-    '.pchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:5px 12px 5px 6px;color:var(--ink);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;font-family:inherit}',
-    '.avatar{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#140f02;font-weight:800;align-items:center;justify-content:center;font-size:14px}',
-    '.wpill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:1px;color:var(--goldbright);border:1px solid rgba(201,133,0,.45);background:rgba(201,133,0,.12)}',
-    '.btnc{display:inline-block;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--accent);border:1px solid var(--accent);color:#fff;text-decoration:none;cursor:pointer;font-family:inherit}'
-  ].join('\n');
-  var st=document.createElement('style'); st.textContent=CSS; document.head.appendChild(st);
-
   var cfg = window.WARD_SHELL || {};
   var PREFIX = cfg.prefix || '';
   var HUB = cfg.mode === 'hub';
   var DERBY_HIDE = new Date('2026-09-03T00:00:00-06:00');  // Derby tab retires the day after the draft
   var TABS = [['home','Home'],['derby','Draft Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
+  var SUPA = { url:'https://wdfkzkkcyhzrbmipgiil.supabase.co', key:'sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m' };
+  var FOOTER = 'The 69th Ward · Buy-in $20 + $2/loss · Playoff loser eats the herring 🐟';
 
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
   function cache(){ try{ return JSON.parse(localStorage.getItem('wardShell')||'null'); }catch(e){ return null; } }
   function saveCache(s){ try{ if(s) localStorage.setItem('wardShell',JSON.stringify(s)); else localStorage.removeItem('wardShell'); }catch(e){} }
 
+  /* THE member-matching rule: session email → roster row. Handles the real-email
+     identity (email or contact_email) and legacy synthetic w<digits>@69thward.app. */
+  function matchMember(members, sessionEmail){
+    var uem = (sessionEmail||'').toLowerCase();
+    var sm = uem.match(/^w(\d+)@69thward\.app$/);
+    return (members||[]).find(function(m){
+      return sm ? m.phone===sm[1] : (m.email===uem || (m.contact_email||'').toLowerCase()===uem);
+    }) || null;
+  }
+
+  function toast(t, ms){
+    var d=document.createElement('div'); d.textContent=t;
+    d.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:8px 18px;font-size:13px;z-index:99;color:var(--ink)';
+    document.body.appendChild(d); setTimeout(function(){ d.remove(); }, ms||1800);
+  }
+
   function chipHTML(s){
     if(!(s && s.n)){
-      return HUB ? '<button class="btnc" onclick="window.openLogin&&openLogin(\'in\')">Sign in</button>'
-                 : '<a class="btnc" href="'+PREFIX+'?signin=1">Sign in</a>';
+      return HUB ? '<button class="btn sm primary" onclick="window.openLogin&&openLogin(\'in\')">Sign in</button>'
+                 : '<a class="btn sm primary" href="'+PREFIX+'?signin=1">Sign in</a>';
     }
     var n = esc(s.n);
-    var inner = '<span class="avatar">'+(n[0]||'?')+'</span>'+n+(s.c?' <span class="wpill">C</span>':'');
+    var inner = '<span class="avatar">'+(n[0]||'?')+'</span>'+n+(s.c?' <span class="pill gold">C</span>':'');
     return HUB ? '<button class="pchip" onclick="window.toggleMenu&&toggleMenu()">'+inner+'</button>'
                : '<a class="pchip" href="'+PREFIX+'#home">'+inner+'</a>';
   }
@@ -67,10 +71,18 @@
     var who=document.getElementById('who'), tabs=document.getElementById('tabs');
     if(who) who.innerHTML = chipHTML(s);
     if(tabs) tabs.innerHTML = tabsHTML(s, active);
+    var f=document.getElementById('foot');
+    if(f && !f.textContent) f.textContent = FOOTER;
   }
 
   // first paint — synchronous, from cache, before any network work
   render(cache(), cfg.active != null ? cfg.active : ((location.hash.slice(1).split('/')[0]) || 'home'));
+  // the footer element parses after this script — fill it when the DOM is ready
+  document.addEventListener('DOMContentLoaded', function(){
+    var f=document.getElementById('foot'); if(f && !f.textContent) f.textContent = FOOTER;
+  });
 
-  window.WardShell = { render:render, chipHTML:chipHTML, tabsHTML:tabsHTML, cache:cache, saveCache:saveCache, TABS:TABS };
+  window.WardShell = { render:render, chipHTML:chipHTML, tabsHTML:tabsHTML,
+                       cache:cache, saveCache:saveCache, matchMember:matchMember,
+                       esc:esc, toast:toast, SUPA:SUPA, FOOTER:FOOTER, TABS:TABS };
 })();

@@ -1,0 +1,60 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   WARD SHELL — shared stylesheet. Design tokens, base typography, and every
+   common component (header, tabs, chip, cards, pills, buttons, footer) for
+   BOTH pages: the hub (index.html) and the Derby (derby/, via template.html).
+   Page stylesheets contain ONLY page-specific components — if a rule could
+   apply to both pages, it belongs here and nowhere else.
+
+   ⚠️ When you edit this file (or shell.js), bump the ?v= on the <link> and
+      <script> tags in BOTH index.html and template.html (Pages caching).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── design tokens ── */
+:root{color-scheme:dark;
+  --page:#0d0d0d; --surface:#1a1a19; --surface2:#222220;
+  --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --baseline:#383835; --ring:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent2:#86b6ef; --gold:#c98500; --goldbright:#fab219;
+  --good:#0ca30c; --bad:#e66767; --warn:#ec835a;}
+
+/* ── base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+a{color:var(--accent2);text-decoration:none}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.18em;color:var(--ink2);margin:24px 0 10px;font-weight:700}
+h2 .note{float:right;font-size:11px;color:var(--muted);letter-spacing:0;text-transform:none;font-weight:400}
+.meta{font-size:11.5px;color:var(--muted)}
+.err{color:var(--bad);font-size:12.5px;margin-top:8px}
+.ok{color:var(--good);font-size:12.5px;margin-top:8px}
+.loading{color:var(--muted);font-size:13px;padding:20px;text-align:center}
+footer{margin-top:34px;text-align:center;font-size:11px;color:var(--muted);border-top:1px solid var(--grid);padding-top:14px}
+
+/* ── header / nav / chip ── */
+header.top{display:flex;align-items:center;justify-content:space-between;padding:10px 0 4px}
+.brand{font-weight:800;font-size:18px;letter-spacing:-.01em;color:var(--ink);text-decoration:none;display:block}
+.brand .sub{display:block;font-size:10px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;font-weight:700}
+nav.tabs{display:flex;gap:4px;margin:12px 0 20px;border-bottom:1px solid var(--grid);padding-bottom:10px;flex-wrap:wrap}
+.tab{font-size:13px;color:var(--muted);padding:7px 13px;border-radius:999px;border:1px solid transparent;cursor:pointer;background:none;text-decoration:none;display:inline-block;font-family:inherit}
+.tab.on{color:var(--ink);background:var(--surface);border-color:var(--ring);font-weight:700}
+.tab.urgent{background:var(--gold);color:#140f02;border-color:var(--gold);font-weight:800;animation:wardpulse 1.6s ease-in-out infinite}
+.tab.urgent.on{background:var(--goldbright);border-color:var(--goldbright)}
+@keyframes wardpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}
+.pchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:5px 12px 5px 6px;color:var(--ink);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;font-family:inherit}
+.avatar{display:inline-flex;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#140f02;font-weight:800;align-items:center;justify-content:center;font-size:14px}
+
+/* ── shared components ── */
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px;margin-bottom:12px}
+.card h3{font-size:15px;margin-bottom:4px}
+.pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;border:1px solid var(--ring);color:var(--ink2);background:var(--surface2);margin-left:6px;vertical-align:1px}
+.pill.gold{color:var(--goldbright);border-color:rgba(201,133,0,.45);background:rgba(201,133,0,.12)}
+.pill.green{color:var(--good);border-color:rgba(12,163,12,.4);background:rgba(12,163,12,.1)}
+.pill.red{color:var(--bad);border-color:rgba(230,103,103,.4);background:rgba(230,103,103,.08)}
+.pill.blue{color:var(--accent2);border-color:rgba(57,135,229,.4);background:rgba(57,135,229,.1)}
+.btn{display:inline-block;padding:8px 16px;border-radius:10px;border:1px solid var(--ring);background:var(--surface2);color:var(--ink);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:#140f02}
+.btn.ghost{background:none;color:var(--ink2)}
+.btn.sm{padding:4px 10px;font-size:12px;font-weight:600}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#2a0808}
+.btn:disabled{opacity:.45;cursor:default}

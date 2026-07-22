@@ -15,34 +15,15 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://payton10.github.io/69thward/">
 <meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="shell.css?v=20260722b">
 <style>
-  :root{color-scheme:dark;
-    --page:#0d0d0d; --surface:#1a1a19; --surface2:#222220;
-    --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
-    --grid:#2c2c2a; --baseline:#383835; --ring:rgba(255,255,255,.10);
-    --accent:#3987e5; --accent2:#86b6ef; --gold:#c98500; --goldbright:#fab219;
-    --good:#0ca30c; --bad:#e66767; --warn:#ec835a;}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
-  .wrap{max-width:720px;margin:0 auto;padding:16px 16px 60px}
-  a{color:var(--accent2);text-decoration:none}
-  /* header/nav/chip styles come from shell.js — the ONE header engine shared with the Derby page */
-  h2{font-size:13px;text-transform:uppercase;letter-spacing:.18em;color:var(--ink2);margin:24px 0 10px;font-weight:700}
-  .card{background:var(--surface);border:1px solid var(--ring);border-radius:14px;padding:16px;margin-bottom:12px}
-  .card h3{font-size:15px;margin-bottom:4px}
-  .meta{font-size:11.5px;color:var(--muted)}
+  /* PAGE-SPECIFIC styles only. Tokens, base, header, cards, pills, buttons,
+     and the footer live in shell.css — shared with the Derby page. */
   .body-md{font-size:14px;color:var(--ink2);margin-top:8px;line-height:1.7}
   .body-md p{margin:9px 0}
   .body-md .li{padding:5px 0 5px 20px;position:relative}
   .body-md .li::before{content:'•';position:absolute;left:5px;color:var(--gold);font-weight:800}
   .body-md b{color:var(--ink)}
-  .btn{display:inline-block;padding:8px 16px;border-radius:10px;border:1px solid var(--ring);background:var(--surface2);color:var(--ink);font-size:13px;font-weight:700;cursor:pointer}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .btn.gold{background:var(--gold);border-color:var(--gold);color:#140f02}
-  .btn.ghost{background:none;color:var(--ink2)}
-  .btn.sm{padding:4px 10px;font-size:12px;font-weight:600}
-  .btn:disabled{opacity:.45;cursor:default}
-  .btn.danger{background:var(--bad);border-color:var(--bad);color:#2a0808}
   .pickrow{display:flex;gap:8px;margin-top:12px}
   .pick{flex:1;text-align:left;background:var(--surface2);border:1px solid var(--ring);border-radius:12px;padding:10px 12px;cursor:pointer;color:var(--ink2);font-family:inherit}
   .pick b{display:block;color:var(--ink);font-size:13.5px}
@@ -63,13 +44,6 @@
   input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--ring);border-radius:10px;color:var(--ink);padding:10px 12px;font-size:14px;font-family:inherit;margin-top:8px}
   textarea{min-height:80px;resize:vertical}
   label{font-size:12px;color:var(--muted);display:block;margin-top:12px}
-  .err{color:var(--bad);font-size:12.5px;margin-top:8px}
-  .ok{color:var(--good);font-size:12.5px;margin-top:8px}
-  .pill{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;border:1px solid var(--ring);color:var(--ink2);background:var(--surface2);margin-left:6px;vertical-align:1px}
-  .pill.gold{color:var(--goldbright);border-color:rgba(201,133,0,.45);background:rgba(201,133,0,.12)}
-  .pill.green{color:var(--good);border-color:rgba(12,163,12,.4);background:rgba(12,163,12,.1)}
-  .pill.red{color:var(--bad);border-color:rgba(230,103,103,.4);background:rgba(230,103,103,.08)}
-  .pill.blue{color:var(--accent2);border-color:rgba(57,135,229,.4);background:rgba(57,135,229,.1)}
   .likebtn{background:none;border:1px solid var(--ring);border-radius:999px;color:var(--ink2);font-size:12px;padding:3px 11px;cursor:pointer}
   .likebtn.liked{color:var(--goldbright);border-color:rgba(201,133,0,.5);background:rgba(201,133,0,.1)}
   .thread{margin-top:12px;border-top:1px solid var(--grid);padding-top:10px}
@@ -134,8 +108,6 @@
   .rules-toc a{display:block;padding:2px 0;color:var(--ink2)}
   .amend{font-size:11px;color:var(--goldbright);margin-top:6px}
   .tagline{font-size:13.5px;color:var(--goldbright);font-style:italic;margin-top:3px}
-  footer{margin-top:34px;text-align:center;font-size:11px;color:var(--muted);border-top:1px solid var(--grid);padding-top:14px}
-  .loading{color:var(--muted);font-size:13px;padding:20px;text-align:center}
 </style>
 </head>
 <body>
@@ -146,18 +118,18 @@
   </header>
   <nav class="tabs" id="tabs"></nav>
   <script>window.WARD_SHELL={mode:'hub'};</script>
-  <script src="shell.js?v=20260722a"></script>
+  <script src="shell.js?v=20260722b"></script>
   <main id="main"><div class="loading">Loading…</div></main>
-  <footer>The 69th Ward · Buy-in $20 + $2/loss · Playoff loser eats the herring 🐟</footer>
+  <footer id="foot"></footer>
 </div>
 <div id="overlay"></div>
 <div id="modal"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const SB = supabase.createClient('https://wdfkzkkcyhzrbmipgiil.supabase.co','sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m');
+const SB = supabase.createClient(WardShell.SUPA.url, WardShell.SUPA.key);
 const $ = id => document.getElementById(id);
-const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = WardShell.esc;
 const fmtD = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 const dtVal = d => { const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 const snapClose = days => { const d=new Date(); d.setDate(d.getDate()+days); d.setHours(21,0,0,0); return d; };  // votes close at 9:00 PM
@@ -203,9 +175,7 @@ async function shareLink(btn,path){
   }
   copyLink(path);
 }
-function toast(t,ms){ const d=document.createElement('div'); d.textContent=t;
-  d.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:8px 18px;font-size:13px;z-index:99;color:var(--ink)';
-  document.body.appendChild(d); setTimeout(()=>d.remove(),ms||1800); }
+const toast = WardShell.toast;
 
 // ---------- integrated dialogs (no browser popups) ----------
 let _confirmResolve=null;
@@ -252,9 +222,7 @@ async function refreshMe(){
   if(!session){ me=null; members=[]; pendingVotes=[]; WardShell.saveCache(null); return; }
   const {data:mem} = await SB.from('ward_members').select('*');
   if(!mem) return;   // transient fetch failure (token refresh moment, flaky signal): keep last known state
-  const uem = (session.user.email||'').toLowerCase();
-  const sm = uem.match(/^w(\d+)@69thward\.app$/);
-  const me2 = mem.find(m => sm ? m.phone===sm[1] : (m.email===uem || (m.contact_email||'').toLowerCase()===uem)) || null;
+  const me2 = WardShell.matchMember(mem, session.user.email);  // the ONE matching rule, shared with the derby page
   let pending2 = [];
   if(me2){
     const {data:open} = await SB.from('ward_measures').select('id,title').eq('status','open');
