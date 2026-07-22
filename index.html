@@ -163,16 +163,25 @@ const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*([^*\n
 let session=null, me=null, members=[], TAB='home', TARGET=null, pendingVotes=[];
 const DRAFT = new Date('2026-09-02T18:30:00-06:00');
 const SEASON_START = new Date('2026-09-09T00:00:00-06:00');
+const DERBY_HIDE = (()=>{const d=new Date(DRAFT); d.setHours(0,0,0,0); d.setDate(d.getDate()+1); return d;})();  // menu drops the day after the draft
 const name = e => (members.find(m=>m.email===e)||{}).name || (e||'').split('@')[0];
 
 // ---------- boot ----------
-const TABS = [['home','Home'],['derby','Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
+const TABS = [['home','Home'],['derby','Draft Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
 const ROM = ['','I','II','III','IV','V','VI','VII','VIII','IX','X'];
 let TH = {member_count:12, regular_needed:7, sacred_needed:9};
 function drawTabs(){
-  $('tabs').innerHTML = TABS.map(([k,l])=>k==='derby'
-    ? `<a class="tab" href="derby/">Derby 🎲</a>`
+  $('tabs').innerHTML = TABS.filter(([k])=>k!=='derby'||new Date()<DERBY_HIDE).map(([k,l])=>k==='derby'
+    ? `<button class="tab" onclick="goDerby()">${l}</button>`
     : `<button class="tab${TAB===k?' on':''}" onclick="go('${k}')">${l}${k==='vote'&&pendingVotes.length?'<span class=dot></span>':''}</button>`).join('');
+}
+function goDerby(){
+  if(pendingVotes.length){
+    const n=pendingVotes[0];
+    TAB='vote'; TARGET=String(n.id); history.replaceState(null,'','#vote/'+n.id);
+    toast('Cast your ballots first 🗳️'); render(); return;
+  }
+  location.href='derby/';
 }
 function go(t){ TAB=t; TARGET=null; location.hash=t; render(); }
 function parseHash(){ const p=location.hash.slice(1).split('/'); if(TABS.some(([k])=>k===p[0])){ TAB=p[0]; TARGET=p[1]||null; return true; } return false; }
