@@ -459,7 +459,7 @@ async function rProposals(m){
       <div class="body-md">${md(p.body)}</div>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="bless${iLike?' given':''}" onclick="likeProp(${p.id},${iLike})">🙏 ${iLike?'Blessing offered':'Offer my blessing'} · ${pl.length}</button>
-        <button class="likebtn" data-st="🙏 Proposal before the Ward: ${esc(p.title)}" onclick="shareLink(this,'proposals/${p.id}')" title="Share link">🔗</button>
+        <button class="likebtn" data-st="Proposal: ${esc(p.title)}" onclick="shareLink(this,'proposals/${p.id}')" title="Share link">🔗</button>
         ${me.is_commissioner?`<button class="btn sm gold" onclick="promote(${p.id})">Send to vote →</button>
         <button class="btn sm ghost" onclick="archiveProp(${p.id})">Archive</button>
         <button class="btn sm ghost" onclick="delProp(${p.id})" title="Delete forever">🗑</button>`:''}
@@ -661,7 +661,7 @@ async function rMeasurePage(m, id){
            :`<button class="backbtn" onclick="go('vote')">← All votes</button>`}
     <div class="card" id="m-${v.id}">
       <h3>${esc(v.title)}${majPill(v)}
-        <button class="likebtn" style="float:right" data-st="🗳️ ${v.status==='open'?'Vote before the Ward':'The Ward has spoken'}: ${esc(v.title)}" onclick="shareLink(this,'vote/${v.id}')" title="Share link">🔗</button></h3>
+        <button class="likebtn" style="float:right" data-st="${v.status==='open'?'Vote':'Vote result'}: ${esc(v.title)}" onclick="shareLink(this,'vote/${v.id}')" title="Share link">🔗</button></h3>
       <div class="meta">${v.status==='open'
         ?(ranked?`closes ${fmtD(v.closes_at)} · tap options in your order of preference · ballots are secret until it closes`
                 :`closes ${fmtD(v.closes_at)} · needs ${need} of ${TH.member_count} to sustain · ballots are secret until it closes`)
@@ -771,7 +771,7 @@ async function rRules(m){
     <div class="card"><div class="rules-toc">${rules.map(r=>`<a href="#rules" onclick="document.getElementById('r-${r.id}').scrollIntoView({behavior:'smooth'})">${ROM[r.id]}. ${esc(r.title)}</a>`).join('')}</div>
     <div class="meta">Handed down at the founding, amended only by the Ward (Commandment X). The PDF era (2022–2025) is archived with the commissioner.</div></div>`
     + rules.map(r=>`<div class="card" id="r-${r.id}"><h3>${ROM[r.id]} · ${esc(r.title)}
-      <button class="likebtn" style="float:right" data-st="📜 Commandment ${ROM[r.id]}: ${esc(r.title)}" onclick="shareLink(this,'rules/${r.id}')" title="Share link">🔗</button></h3>
+      <button class="likebtn" style="float:right" data-st="League rules: ${esc(r.title)}" onclick="shareLink(this,'rules/${r.id}')" title="Share link">🔗</button></h3>
       ${r.tagline?`<div class="tagline">“${esc(r.tagline)}”</div>`:''}
       <div class="body-md">${md(r.body_md)}</div>
       ${r.amended_by?`<div class="amend">Amended by Measure #${r.amended_by}</div>`:''}</div>`).join('');
