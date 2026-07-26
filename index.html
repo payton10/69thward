@@ -1067,45 +1067,14 @@ async function mmRemove(email,nm){
 }
 
 // ---------- SIDE GAMES (concept hub; games get built as Payton picks them) ----------
-const SIDEGAMES = [
-  { tier:'Ready to run now', note:'These can start this season — scored by the commissioner each week (and auto-scored later, once the live feed is wired).', games:[
-    { name:'Weekly Pick’em', need:'needs weekly NFL winners', body:'Call every NFL game each week. **Most correct wins the week**, and a season-long leaderboard crowns an overall champ. Low effort, high trash-talk.' },
-    { name:'Manager Duels', need:'needs nothing but you two', body:'Call anyone out for a **one-week head-to-head side bet** — bragging rights or a wager you set (loser buys wings, wears a jersey, whatever). The app tracks open challenges and records who won. Runs entirely inside the league, no outside data needed.' },
-  ]},
-  { tier:'When the score feed is live', note:'These read your Yahoo fantasy scores automatically — they switch on once the Yahoo API access comes through (application already submitted).', games:[
-    { name:'Weekly High Score', need:'needs fantasy scores', body:'Highest fantasy score each week wins a slice of a side pot. Keeps the cellar-dwellers swinging for the fences every Sunday.' },
-    { name:'Perfect Lineup', need:'needs fantasy scores', body:'Who left the **fewest points on their bench**? A season-long award for the sharpest start/sit calls — no luck, all skill.' },
-    { name:'Weekly Superlatives', need:'needs fantasy scores', body:'Auto-tracked bragging rights: **biggest blowout**, **closest nail-biter**, and the **unluckiest loss** (most points scored in a loss). Handed out every week.' },
-  ]},
-  { tier:'Seasonal & playoff', note:'Bigger one-off contests for the back half of the year.', games:[
-    { name:'NFL Playoff Bracket', need:'seasonal', body:'Everyone fills a bracket when the **real NFL playoffs** start. Points for correct picks all the way to the Super Bowl. (We’ve already got a bracket engine in the family — easy to adapt.)' },
-    { name:'Super Bowl Squares', need:'seasonal', body:'The classic **10×10 grid**. Random digits assigned, quarter-by-quarter payouts. A perfect Super Bowl Sunday closer for the whole Ward.' },
-  ]},
-];
 async function rSideGames(m){
   if(!me){ m.innerHTML=authBox(); return; }
   if(TARGET==='survivor') return rSurvivor(m);
-  const needPill = n => n.includes('nothing')?'<span class="pill green">plays today</span>'
-    : n.includes('NFL winners')?'<span class="pill blue">'+esc(n)+'</span>'
-    : n.includes('fantasy')?'<span class="pill gold">'+esc(n)+'</span>'
-    : '<span class="pill">'+esc(n)+'</span>';
-  const html=[`<h2>Side Games</h2>
+  m.innerHTML = `<h2>Side Games</h2>
     <a class="card" href="#sidegames/survivor" style="display:block;border-color:rgba(122,79,214,.6);color:inherit">
       <h3>🏈 Survivor Pool <span class="pill green">LIVE · open to join</span></h3>
       <div class="body-md">$20 buy-in, voluntary, <b>winner takes all</b>. Pick one NFL team to win each week — never the same team twice. Lose once, you’re out. Join or withdraw until the season kicks off. <b>Tap in →</b></div></a>
-    <div class="card"><h3>The league within the league</h3>
-    <div class="body-md">Contests that run alongside the main season so there’s always something to play for — even when your fantasy team is out of it by Week 8. Survivor is live above; the rest is the menu. ${me.is_commissioner?'<b>Tell me which ones you want next and I’ll build them.</b>':'The commissioner picks which of these we run.'}</div></div>`];
-  for(const grp of SIDEGAMES){
-    html.push(`<h2 style="margin-top:26px">${esc(grp.tier)}</h2>`);
-    html.push(`<div class="meta" style="margin:-4px 2px 10px">${esc(grp.note)}</div>`);
-    for(const g of grp.games){
-      html.push(`<div class="card"><h3>${esc(g.name)} ${needPill(g.need)}</h3>
-        <div class="body-md">${md(g.body)}</div></div>`);
-    }
-  }
-  html.push(`<div class="card" style="border-color:rgba(201,133,0,.4)"><div class="body-md" style="margin-top:0">
-    <b>How they’ll work:</b> most side games have their own small buy-in, tracked separately from the main pot — you send Venmo requests the same way. Scoring is entered by you each week to start (a two-tap “who won” grid), and flips to automatic when the Yahoo feed lands. Some games (like Manager Duels) any member can start; others you run for the whole league.</div></div>`);
-  m.innerHTML = html.join('');
+    <div class="meta" style="margin:14px 2px">More side games will land here as the season goes. Got one in mind? Open a topic in Proposals.</div>`;
 }
 
 // ---------- SURVIVOR POOL (#sidegames/survivor) ----------
