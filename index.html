@@ -1260,6 +1260,15 @@ async function svWithdraw(pid){
   render();
 }
 async function svPick(pid,wk,team){
+  // Asymmetric friction: FIRST pick is one tap (nothing to lose, the bar is nagging you),
+  // but CHANGING a pick confirms first — that's the only case a stray tap can cost you.
+  const curEl=document.querySelector('#main .svteam.mine');
+  const cur=curEl?curEl.dataset.t:null;
+  if(cur===team){ toast(`Already riding ${team} 🎯`); return; }
+  if(cur && !await wardConfirm({
+    title:`Switch to ${team}?`,
+    body:`<img class="tlogo" src="${tLogo(cur)}" alt="">${esc(cur)} → <img class="tlogo" src="${tLogo(team)}" alt=""><b>${esc(team)}</b> for Week ${wk}. You can keep changing until kickoff.`,
+    ok:`Switch to ${team}`, okClass:'purple'})) return;
   // optimistic: highlight instantly, before the network round-trip — team ring,
   // the status line in the alive card, AND the pinned bar all flip at once
   document.querySelectorAll('#main .svteam').forEach(b=>{
