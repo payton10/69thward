@@ -54,6 +54,23 @@
   .svmid{font-size:11px;color:var(--muted);text-align:center;min-width:74px;flex:none;line-height:1.5}
   .svodds{display:block;font-size:10px;color:var(--purplebright);font-weight:700;white-space:nowrap}
   .tlogo{width:20px;height:20px;vertical-align:-5px;margin-right:3px}
+  /* the pick grid — the pool's whole story in one table */
+  .svgridwrap{overflow-x:auto;margin-top:8px;border:1px solid var(--grid);border-radius:12px;background:var(--surface2)}
+  table.svgrid{border-collapse:separate;border-spacing:0;min-width:100%;font-size:11px}
+  .svgrid th{padding:7px 4px;font-size:9.5px;color:var(--muted);letter-spacing:.06em;border-bottom:1px solid var(--grid);text-align:center}
+  .svgrid th.nm{text-align:left;padding-left:10px}
+  .svgrid td{padding:4px 3px;text-align:center;border-bottom:1px solid var(--grid)}
+  .svgrid tr:last-child td{border-bottom:none}
+  .svgrid td.nm{position:sticky;left:0;background:var(--surface2);text-align:left;padding:6px 10px;font-weight:700;font-size:12px;white-space:nowrap;z-index:2}
+  .svgrid tr.dead td.nm{color:var(--muted);font-weight:600}
+  .svgrid td.nm .meta{font-size:9.5px;display:block;margin-top:1px}
+  .svc{display:inline-flex;width:30px;height:30px;border-radius:8px;align-items:center;justify-content:center;border:1px solid transparent;font-size:12px;color:var(--muted)}
+  .svc img{width:22px;height:22px}
+  .svc.win{background:rgba(12,163,12,.15);border-color:rgba(12,163,12,.5)}
+  .svc.loss{background:rgba(230,103,103,.14);border-color:rgba(230,103,103,.55)}
+  .svc.fatal{box-shadow:0 0 0 2px rgba(230,103,103,.4)}
+  .svc.pend{background:var(--surface);border-color:var(--ring)}
+  .svc.priv{background:var(--surface);border:1px dashed rgba(122,79,214,.65)}
   .tour-card{max-width:440px;margin:5vh auto 0;text-align:center;background:var(--surface);border:1px solid var(--ring);border-radius:18px;padding:30px 24px}
   .tour-ico{font-size:44px}
   .tour-card h1{font-size:22px;margin:10px 0 4px}
@@ -1087,9 +1104,10 @@ async function rSurvivor(m){
   const {data:st} = await SB.rpc('ward_survivor_standings',{pid:pool.id});
   if(!st){ m.innerHTML='<div class="err">Standings unavailable — try a refresh.</div>'; return; }
   const wk = SVWEEK || st.current_week || 1;
-  const [{data:games},{data:allpicks}] = await Promise.all([
+  const [{data:games},{data:allpicks},{data:allgames}] = await Promise.all([
     SB.from('ward_nfl_games').select('*').eq('season',2026).eq('week',wk).order('kickoff'),
     SB.from('ward_survivor_picks').select('*').eq('pool_id',pool.id),
+    SB.from('ward_nfl_games').select('week,home,away,winner,status,kickoff').eq('season',2026),
   ]);
   const mine=(allpicks||[]).filter(p=>p.email===me.email);
   const myEntry=(st.entries||[]).find(e=>e.email===me.email);
@@ -1101,7 +1119,7 @@ async function rSurvivor(m){
   html.push(`<button class="backbtn" onclick="TARGET=null;go('sidegames')">← Side Games</button>`);
   html.push(`<div class="card"><h3>🏈 Survivor Pool
       <button class="likebtn" style="float:right" data-st="Survivor Pool — $${pool.buy_in} in, winner takes all. Join up." onclick="shareLink(this,'sidegames/survivor')" title="Share link">🔗</button></h3>
-    <div class="meta">$${pool.buy_in} buy-in · winner takes all · <b style="color:var(--goldbright)">pot $${st.pot}</b> · ${st.total} in${preLock?'':` · ${st.alive} alive`}</div>
+    <div class="meta">$${pool.buy_in} buy-in · winner takes all · <b style="color:var(--goldbright)">pot $${st.pot}</b> · ${st.total} in${preLock?'':` · ${st.alive} alive`}${!preLock&&!st.complete?` · 🔒 ${st.picked_current||0}/${st.alive} picked this week`:''}</div>
     ${st.complete&&st.total?`<div class="body-md">🏆 <b>${(st.winners||[]).map(esc).join(' & ')||'—'}</b> ${(st.winners||[]).length>1?'split the pot':'takes it all'}.</div>`:''}
   </div>`);
   if(preLock){
@@ -1150,15 +1168,36 @@ async function rSurvivor(m){
     </div>`);
   }
   if(!preLock && st.total){
-    html.push('<h2 style="margin-top:26px">The Board</h2>');
-    for(const e of (st.entries||[])){
-      const hist=(allpicks||[]).filter(p=>p.email===e.email).sort((a,b)=>a.week-b.week);
-      html.push(`<div class="card" style="padding:12px 16px"><b>${esc(e.name)}</b> ${e.alive?'<span class="pill green">alive</span>':`<span class="pill red">out · wk ${e.out_week}</span>`}
-        ${e.reason?`<span class="meta" style="margin-left:6px">${esc(e.reason)}</span>`:''}
-        ${hist.length?`<div style="margin-top:6px">${hist.map(p=>`<img class="tlogo" src="${tLogo(p.team)}" title="Wk ${p.week}: ${esc(p.team)}" loading="lazy">`).join('')}</div>`:''}
-      </div>`);
-    }
-    html.push(`<div class="meta" style="margin:6px 2px">Picks stay hidden until their game kicks off — then the whole league sees them.</div>`);
+    html.push(`<h2 style="margin-top:26px">The Board <span class="note">${st.alive} alive · ${st.total-st.alive} down</span></h2>`);
+    const pickmap={}; (allpicks||[]).forEach(p=>{ pickmap[p.email+'|'+p.week]=p; });
+    const gmap={}; (allgames||[]).forEach(g=>{ gmap[g.week+'|'+g.home]=g; gmap[g.week+'|'+g.away]=g; });
+    const gridMax=Math.max(1, st.current_week||1);
+    const cell=(e,w)=>{
+      if(e.out_week && w>e.out_week) return '<span class="svc">·</span>';
+      const p=pickmap[e.email+'|'+w];
+      if(!p){
+        if(w===gridMax && e.alive && e.picked_current && e.email!==me.email) return '<span class="svc pend" title="pick locked in — hidden until kickoff">🔒</span>';
+        if(w===e.out_week) return '<span class="svc loss fatal" title="no pick — eliminated">✕</span>';
+        return '<span class="svc" title="no pick yet">—</span>';
+      }
+      const g=gmap[w+'|'+p.team];
+      const img=`<img src="${tLogo(p.team)}" alt="${esc(p.team)}" loading="lazy">`;
+      if(g&&(g.status||'').startsWith('STATUS_FINAL')){
+        if(g.winner===p.team) return `<span class="svc win" title="Wk ${w}: ${esc(p.team)} — won">${img}</span>`;
+        return `<span class="svc loss${w===e.out_week?' fatal':''}" title="Wk ${w}: ${esc(p.team)} — ${g.winner==='TIE'?'tied':'lost'}">${img}</span>`;
+      }
+      if(g&&g.status==='STATUS_CANCELED') return `<span class="svc" title="Wk ${w}: ${esc(p.team)} — canceled, wash">${img}</span>`;
+      if(g&&new Date(g.kickoff)<=new Date()) return `<span class="svc pend" title="Wk ${w}: ${esc(p.team)} — in play">${img}</span>`;
+      return `<span class="svc priv" title="Wk ${w}: ${esc(p.team)} — your pick, hidden from the league until kickoff">${img}</span>`;
+    };
+    html.push(`<div class="svgridwrap"><table class="svgrid">
+      <tr><th class="nm">Player</th>${Array.from({length:gridMax},(_,i)=>`<th>W${i+1}</th>`).join('')}</tr>
+      ${(st.entries||[]).map(e=>`<tr${e.alive?'':' class="dead"'}>
+        <td class="nm">${st.complete&&e.alive?'👑 ':''}${esc(e.name)}${e.alive?'':`<span class="meta">☠️ wk ${e.out_week}${e.reason?` · ${esc(e.reason)}`:''}</span>`}</td>
+        ${Array.from({length:gridMax},(_,i)=>`<td>${cell(e,i+1)}</td>`).join('')}
+      </tr>`).join('')}
+    </table></div>`);
+    html.push(`<div class="meta" style="margin:8px 2px">🟩 survived · 🟥 the kill shot · 🔒 locked in, hidden until kickoff · dashed = your own private pick. Everyone's picks go public at kickoff.</div>`);
   }
   html.push(`<h2 style="margin-top:26px">The Terms</h2><div class="card"><div class="body-md">${md(st.terms||'')}</div></div>`);
   m.innerHTML=html.join('');
