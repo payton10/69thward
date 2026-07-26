@@ -15,7 +15,8 @@
   --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
   --grid:#2c2c2a; --baseline:#383835; --ring:rgba(255,255,255,.10);
   --accent:#3987e5; --accent2:#86b6ef; --gold:#c98500; --goldbright:#fab219;
-  --good:#0ca30c; --bad:#e66767; --warn:#ec835a;}
+  --good:#0ca30c; --bad:#e66767; --warn:#ec835a;
+  --purple:#7a4fd6; --purplebright:#b18aff;}
 
 /* ── base ── */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -39,6 +40,8 @@ nav.tabs{display:flex;gap:4px;margin:12px 0 20px;border-bottom:1px solid var(--g
 .tab.on{color:var(--ink);background:var(--surface);border-color:var(--ring);font-weight:700}
 .tab.urgent{background:var(--gold);color:#140f02;border-color:var(--gold);font-weight:800;animation:wardpulse 1.6s ease-in-out infinite}
 .tab.urgent.on{background:var(--goldbright);border-color:var(--goldbright)}
+.tab.sg{color:var(--purplebright)}
+.tab.sg.on{background:rgba(122,79,214,.16);border-color:rgba(122,79,214,.55);color:var(--purplebright);font-weight:700}
 @keyframes wardpulse{0%,100%{box-shadow:0 0 0 0 rgba(250,178,25,.45)}50%{box-shadow:0 0 0 8px rgba(250,178,25,0)}}
 .who-wrap{position:relative}
 .pchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--ring);border-radius:999px;padding:5px 12px 5px 6px;color:var(--ink);font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;font-family:inherit}
@@ -60,4 +63,5 @@ nav.tabs{display:flex;gap:4px;margin:12px 0 20px;border-bottom:1px solid var(--g
 .btn.ghost{background:none;color:var(--ink2)}
 .btn.sm{padding:4px 10px;font-size:12px;font-weight:600}
 .btn.danger{background:var(--bad);border-color:var(--bad);color:#2a0808}
+.btn.purple{background:var(--purple);border-color:var(--purple);color:#fff}
 .btn:disabled{opacity:.45;cursor:default}

@@ -21,7 +21,7 @@
   var PREFIX = cfg.prefix || '';
   var HUB = cfg.mode === 'hub';
   var DERBY_HIDE = new Date('2026-09-03T00:00:00-06:00');  // Derby tab retires the day after the draft
-  var TABS = [['home','Home'],['derby','Draft Derby'],['sidegames','Side Games'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
+  var TABS = [['home','Home'],['derby','Draft Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History'],['sidegames','Side Games']];
   var SUPA = { url:'https://wdfkzkkcyhzrbmipgiil.supabase.co', key:'sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m' };
   var FOOTER = 'The 69th Ward · Buy-in $30 + $3/loss · Playoff loser eats the herring 🐟';
 
@@ -111,6 +111,7 @@
       if(k==='derby' && active==='derby') return '<span class="tab on">'+l+'</span>';
       if(k==='vote' && urgent) return '<a class="tab urgent'+on+'" href="'+PREFIX+'#vote">🗳️ Vote · '+s.p+'</a>';
       var href = k==='derby' ? PREFIX+'derby/' : PREFIX+'#'+k;
+      if(k==='sidegames') return '<a class="tab sg'+on+'" href="'+href+'">'+l+'</a>';  // purple: its own corner of the app
       return '<a class="tab'+on+'" href="'+href+'">'+l+'</a>';
     }).join('');
   }

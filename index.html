@@ -15,7 +15,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://payton10.github.io/69thward/">
 <meta name="twitter:card" content="summary">
-<link rel="stylesheet" href="shell.css?v=20260722c">
+<link rel="stylesheet" href="shell.css?v=20260726a">
 <style>
   /* PAGE-SPECIFIC styles only. Tokens, base, header, cards, pills, buttons,
      and the footer live in shell.css — shared with the Derby page. */
@@ -34,16 +34,25 @@
   .rankopt .rk{display:inline-flex;width:26px;height:26px;border-radius:50%;border:1px solid var(--ring);align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted);flex:none}
   .rankopt.on{border-color:var(--gold);background:rgba(201,133,0,.1)}
   .rankopt.on .rk{background:var(--gold);color:#140f02;border-color:var(--gold)}
+  /* Side Games: the purple corner of the app */
+  .sgpage h2{color:var(--purplebright)}
+  .sgpage .card{border-color:rgba(122,79,214,.28)}
+  .sgpage .backbtn{border-color:rgba(122,79,214,.4);color:var(--purplebright)}
+  .sgpage .pill.blue{color:var(--purplebright);border-color:rgba(122,79,214,.5);background:rgba(122,79,214,.12)}
+  .svwknav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:22px}
+  .svwknav b{font-size:15px;letter-spacing:.04em}
+  .svwknav .btn{min-width:96px;text-align:center}
   .svgame{display:flex;align-items:center;gap:6px;padding:8px;border:1px solid var(--grid);border-radius:12px;margin-top:8px;background:var(--surface2)}
   .svteam{flex:1;display:flex;align-items:center;gap:8px;background:none;border:1px solid transparent;border-radius:10px;padding:7px 9px;color:var(--ink);font-weight:700;font-size:13.5px;font-family:inherit;cursor:default;min-width:0}
   .svteam:last-child{flex-direction:row-reverse;text-align:right}
   .svteam img{width:32px;height:32px;flex:none}
   .svteam.pickable{cursor:pointer}
   .svteam.pickable:hover{border-color:var(--ring);background:var(--surface)}
-  .svteam.mine{border-color:var(--gold);background:rgba(201,133,0,.12)}
+  .svteam.mine{border-color:var(--purple);background:rgba(122,79,214,.16)}
   .svteam.used{opacity:.35}
   .svscore{font-size:15px;font-variant-numeric:tabular-nums;margin:0 4px}
-  .svmid{font-size:11px;color:var(--muted);text-align:center;min-width:64px;flex:none}
+  .svmid{font-size:11px;color:var(--muted);text-align:center;min-width:74px;flex:none;line-height:1.5}
+  .svodds{display:block;font-size:10px;color:var(--purplebright);font-weight:700;white-space:nowrap}
   .tlogo{width:20px;height:20px;vertical-align:-5px;margin-right:3px}
   .tour-card{max-width:440px;margin:5vh auto 0;text-align:center;background:var(--surface);border:1px solid var(--ring);border-radius:18px;padding:30px 24px}
   .tour-ico{font-size:44px}
@@ -129,7 +138,7 @@
   </header>
   <nav class="tabs" id="tabs"></nav>
   <script>window.WARD_SHELL={mode:'hub'};</script>
-  <script src="shell.js?v=20260722e"></script>
+  <script src="shell.js?v=20260726a"></script>
   <main id="main"><div class="loading">Loading…</div></main>
   <footer id="foot"></footer>
 </div>
@@ -255,12 +264,19 @@ function drawWho(){
 // Same-view re-renders (likes, comments, blessings, ballots) keep the old DOM on screen
 // until the new HTML is ready, then restore the scroll position — no height collapse,
 // no jump. The "Loading…" state only appears when the view actually changes.
-let LASTVIEW=null;
+let LASTVIEW=null, RENDERING=false, RERENDER=false;
 async function render(){
+  if(RENDERING){ RERENDER=true; return; }   // serialize: no interleaved renders clobbering fresh state with stale fetches
+  RENDERING=true;
+  try{ await renderInner(); }
+  finally{ RENDERING=false; if(RERENDER){ RERENDER=false; render(); } }
+}
+async function renderInner(){
   drawWho();
   if(me && !me.tour_done){ $('tabs').innerHTML=''; $('overlay').innerHTML=''; renderTour(); return; }  // tour first, then the gate
   voteRedirect(); drawTabs();
   const m=$('main');
+  m.className = TAB==='sidegames' ? 'sgpage' : '';   // Side Games wears purple
   const view = TAB+'/'+(TARGET||'');
   const sameView = view===LASTVIEW;
   const y = window.scrollY;
@@ -1043,7 +1059,7 @@ async function rSideGames(m){
     : n.includes('fantasy')?'<span class="pill gold">'+esc(n)+'</span>'
     : '<span class="pill">'+esc(n)+'</span>';
   const html=[`<h2>Side Games</h2>
-    <a class="card" href="#sidegames/survivor" style="display:block;border-color:rgba(201,133,0,.5);color:inherit">
+    <a class="card" href="#sidegames/survivor" style="display:block;border-color:rgba(122,79,214,.6);color:inherit">
       <h3>🏈 Survivor Pool <span class="pill green">LIVE · open to join</span></h3>
       <div class="body-md">$20 buy-in, voluntary, <b>winner takes all</b>. Pick one NFL team to win each week — never the same team twice. Lose once, you’re out. Join or withdraw until the season kicks off. <b>Tap in →</b></div></a>
     <div class="card"><h3>The league within the league</h3>
@@ -1063,7 +1079,7 @@ async function rSideGames(m){
 
 // ---------- SURVIVOR POOL (#sidegames/survivor) ----------
 let SVWEEK=null;
-const tLogo = ab => `https://a.espncdn.com/i/teamlogos/nfl/500/${(ab||'').toLowerCase()}.png`;
+const tLogo = ab => `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${(ab||'').toLowerCase()}.png`;  // dark-background logo set
 const svTime = k => { const d=new Date(k); return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
 async function rSurvivor(m){
   const {data:pool} = await SB.from('ward_survivor_pools').select('*').eq('season',2026).single();
@@ -1092,9 +1108,9 @@ async function rSurvivor(m){
     html.push(`<div class="card"${myEntry?'':' style="border-color:rgba(201,133,0,.5)"'}>
       ${myEntry
         ? `<h3>You're in ✅</h3><div class="meta">Locked in when the season kicks off — until then you can still back out. Opener: ${svTime(pool.lock_at)}.</div>
-           <div style="margin-top:10px"><button class="btn sm ghost" onclick="svWithdraw(${pool.id})">Withdraw</button></div>`
+           <div style="margin-top:10px"><button class="btn sm danger" onclick="svWithdraw(${pool.id})">Withdraw</button></div>`
         : `<h3>Join the pool</h3><div class="meta">Voluntary. $${pool.buy_in} on the line, winner takes the pot. Join or back out freely until kickoff of the opener — ${svTime(pool.lock_at)}. You'll agree to the terms first.</div>
-           <div style="margin-top:10px"><button class="btn gold" onclick="svJoinModal(${pool.id})">Join — $${pool.buy_in}</button></div>`}
+           <div style="margin-top:10px"><button class="btn purple" onclick="svJoinModal(${pool.id})">Join — $${pool.buy_in}</button></div>`}
       ${st.total?`<div class="chips">in the pool: ${(st.entries||[]).map(e=>`<span class="c">${esc(e.name)}</span>`).join('')}</div>`:''}
     </div>`);
   } else if(!myEntry){
@@ -1105,9 +1121,11 @@ async function rSurvivor(m){
     html.push(`<div class="card" style="border-color:rgba(12,163,12,.4)"><h3>🟢 You're alive</h3>
       <div class="meta">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}${used.size?` · burned: ${[...used].sort().map(esc).join(', ')}`:''}</div></div>`);
   }
-  html.push(`<h2 style="margin-top:24px">Week ${wk}
-    <span class="note">${wk>1?`<button class="likebtn" onclick="SVWEEK=${wk-1};render()">‹</button>`:''}
-    ${wk<18?`<button class="likebtn" onclick="SVWEEK=${wk+1};render()">›</button>`:''}</span></h2>`);
+  html.push(`<div class="svwknav">
+    ${wk>1?`<button class="btn sm" onclick="SVWEEK=${wk-1};render()">‹ Week ${wk-1}</button>`:'<span style="min-width:96px"></span>'}
+    <b>WEEK ${wk}</b>
+    ${wk<18?`<button class="btn sm" onclick="SVWEEK=${wk+1};render()">Week ${wk+1} ›</button>`:'<span style="min-width:96px"></span>'}
+  </div>`);
   const canPick = myEntry && iAlive && !st.complete;
   let day='';
   for(const g of (games||[])){
@@ -1121,12 +1139,13 @@ async function rSurvivor(m){
       const isUsed=used.has(ab);
       const pickable=canPick&&!started&&!isUsed;
       const won=fin&&g.winner===ab;
-      return `<button class="svteam${isMine?' mine':''}${isUsed?' used':''}${pickable?' pickable':''}"${pickable?` onclick="svPick(${pool.id},${wk},'${ab}')"`:''}${isUsed?' title="already used — one ride per team"':''}>
-        <img src="${logo||tLogo(ab)}" alt="" loading="lazy"><span>${esc(ab)}${won?' ✓':''}${isMine?' 🎯':''}</span>${score!=null&&started?`<b class="svscore">${score}</b>`:''}</button>`;
+      return `<button class="svteam${isMine?' mine':''}${isUsed?' used':''}${pickable?' pickable':''}" data-t="${esc(ab)}"${pickable?` onclick="svPick(${pool.id},${wk},'${ab}')"`:''}${isUsed?' title="already used — one ride per team"':''}>
+        <img src="${tLogo(ab)}" alt="" loading="lazy"><span>${esc(ab)}${won?' ✓':''}${isMine?' 🎯':''}</span>${score!=null&&started?`<b class="svscore">${score}</b>`:''}</button>`;
     };
     html.push(`<div class="svgame">
       ${side(g.away,g.away_logo,g.away_score)}
-      <div class="svmid">${fin?'<b>FINAL</b>':live?'<b style="color:var(--goldbright)">LIVE</b>':g.status==='STATUS_CANCELED'?'CANCELED':new Date(g.kickoff).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+      <div class="svmid">${fin?'<b>FINAL</b>':live?'<b style="color:var(--goldbright)">LIVE</b>':g.status==='STATUS_CANCELED'?'CANCELED':new Date(g.kickoff).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
+        ${!started&&g.odds?`<span class="svodds">${esc(g.odds)}${g.over_under?` · O/U ${g.over_under}`:''}</span>`:''}</div>
       ${side(g.home,g.home_logo,g.home_score)}
     </div>`);
   }
@@ -1152,7 +1171,7 @@ async function svJoinModal(pid){
     <div class="meta" style="margin-top:4px">Joining means you agree to all of this:</div>
     <div class="body-md" style="max-height:50vh;overflow-y:auto;margin-top:8px">${md(pool.terms_md)}</div>
     <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn gold" onclick="svJoin(${pid})">I agree — I'm in ($${pool.buy_in})</button>
+      <button class="btn purple" onclick="svJoin(${pid})">I agree — I'm in ($${pool.buy_in})</button>
       <button class="btn ghost" onclick="closeLogin()">Not yet</button>
     </div>
   </div></div></div>`;
@@ -1170,8 +1189,15 @@ async function svWithdraw(pid){
   render();
 }
 async function svPick(pid,wk,team){
+  // optimistic: highlight instantly, before the network round-trip
+  document.querySelectorAll('#main .svteam').forEach(b=>{
+    const on = b.dataset.t===team;
+    b.classList.toggle('mine', on);
+    const sp=b.querySelector('span');
+    if(sp) sp.textContent = sp.textContent.replace(' 🎯','') + (on?' 🎯':'');
+  });
   const {error}=await SB.from('ward_survivor_picks').upsert({pool_id:pid,email:me.email,week:wk,team});
-  if(error){ toast(error.message,3500); return; }
+  if(error){ toast(error.message,3500); render(); return; }   // revert optimistic state on failure
   toast(`Week ${wk}: ${team} 🎯`);
   render();
 }
