@@ -21,7 +21,7 @@
   var PREFIX = cfg.prefix || '';
   var HUB = cfg.mode === 'hub';
   var DERBY_HIDE = new Date('2026-09-03T00:00:00-06:00');  // Derby tab retires the day after the draft
-  var TABS = [['home','Home'],['derby','Draft Derby'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
+  var TABS = [['home','Home'],['derby','Draft Derby'],['sidegames','Side Games'],['proposals','Proposals'],['vote','Vote'],['rules','Commandments'],['history','Church History']];
   var SUPA = { url:'https://wdfkzkkcyhzrbmipgiil.supabase.co', key:'sb_publishable_YKSRpVgAy4xL64CRzGnRyw_kf4SkX1m' };
   var FOOTER = 'The 69th Ward · Buy-in $20 + $2/loss · Playoff loser eats the herring 🐟';
 
