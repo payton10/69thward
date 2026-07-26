@@ -41,7 +41,10 @@
 
   function toast(t, ms){
     var d=document.createElement('div'); d.textContent=t;
-    d.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:8px 18px;font-size:13px;z-index:99;color:var(--ink)';
+    // stack above any pinned bar (e.g. the survivor pick-status bar) instead of on top of it
+    var b=24, bar=document.getElementById('svbar');
+    if(bar){ var r=bar.getBoundingClientRect(); if(r.top>0 && r.top<window.innerHeight) b=Math.round(window.innerHeight-r.top+10); }
+    d.style.cssText='position:fixed;bottom:'+b+'px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--ring);border-radius:999px;padding:8px 18px;font-size:13px;z-index:99;color:var(--ink)';
     document.body.appendChild(d); setTimeout(function(){ d.remove(); }, ms||1800);
   }
 
