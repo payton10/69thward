@@ -34,6 +34,17 @@
   .rankopt .rk{display:inline-flex;width:26px;height:26px;border-radius:50%;border:1px solid var(--ring);align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--muted);flex:none}
   .rankopt.on{border-color:var(--gold);background:rgba(201,133,0,.1)}
   .rankopt.on .rk{background:var(--gold);color:#140f02;border-color:var(--gold)}
+  .svgame{display:flex;align-items:center;gap:6px;padding:8px;border:1px solid var(--grid);border-radius:12px;margin-top:8px;background:var(--surface2)}
+  .svteam{flex:1;display:flex;align-items:center;gap:8px;background:none;border:1px solid transparent;border-radius:10px;padding:7px 9px;color:var(--ink);font-weight:700;font-size:13.5px;font-family:inherit;cursor:default;min-width:0}
+  .svteam:last-child{flex-direction:row-reverse;text-align:right}
+  .svteam img{width:32px;height:32px;flex:none}
+  .svteam.pickable{cursor:pointer}
+  .svteam.pickable:hover{border-color:var(--ring);background:var(--surface)}
+  .svteam.mine{border-color:var(--gold);background:rgba(201,133,0,.12)}
+  .svteam.used{opacity:.35}
+  .svscore{font-size:15px;font-variant-numeric:tabular-nums;margin:0 4px}
+  .svmid{font-size:11px;color:var(--muted);text-align:center;min-width:64px;flex:none}
+  .tlogo{width:20px;height:20px;vertical-align:-5px;margin-right:3px}
   .tour-card{max-width:440px;margin:5vh auto 0;text-align:center;background:var(--surface);border:1px solid var(--ring);border-radius:18px;padding:30px 24px}
   .tour-ico{font-size:44px}
   .tour-card h1{font-size:22px;margin:10px 0 4px}
@@ -118,7 +129,7 @@
   </header>
   <nav class="tabs" id="tabs"></nav>
   <script>window.WARD_SHELL={mode:'hub'};</script>
-  <script src="shell.js?v=20260722e"></script>
+  <script src="shell.js?v=20260722d"></script>
   <main id="main"><div class="loading">Loading…</div></main>
   <footer id="foot"></footer>
 </div>
@@ -418,7 +429,7 @@ async function rHome(m){
   if(me){
     const {data:pay} = await SB.from('ward_payments').select('*').eq('season',2026);
     dues = `<h2>2026 Money</h2><div class="card">
-      <div class="meta">Buy-in $30 + $3 per regular-season loss (lose all 14 and it's $72) — with 12 teams that's roughly a $612 pot. After the last playoff game the commissioner sends the Venmo requests — pay before the Super Bowl. 3rd gets buy-in back; the rest splits 70/30.</div>
+      <div class="meta">Buy-in $20 + $2 per regular-season loss (lose all 14 and it's $48). After the last playoff game the commissioner sends the Venmo requests — pay before the Super Bowl. 3rd gets buy-in back; the rest splits 70/30.</div>
       ${(pay&&pay.length)?`<table><tr><th>Manager</th><th style="text-align:right">Due</th><th>Status</th></tr>${pay.map(p=>
         `<tr><td>${esc(name(p.email))}</td><td class="num">$${p.due}</td><td>${p.paid?'<span class="pill green">Paid</span>':'<span class="pill red">Owes</span>'}</td></tr>`).join('')}</table>`
       :'<div class="meta" style="margin-top:8px">Dues appear here once the regular season wraps.</div>'}</div>`;
@@ -1011,7 +1022,6 @@ async function mmRemove(email,nm){
 // ---------- SIDE GAMES (concept hub; games get built as Payton picks them) ----------
 const SIDEGAMES = [
   { tier:'Ready to run now', note:'These can start this season — scored by the commissioner each week (and auto-scored later, once the live feed is wired).', games:[
-    { name:'Survivor Pool', need:'needs weekly NFL winners', body:'Pick **one NFL team to win** each week. Win, you live to the next week. Lose, you’re out. **Never pick the same team twice all season.** Last one standing takes the pot — and everyone keeps playing even after their fantasy team is cooked.' },
     { name:'Weekly Pick’em', need:'needs weekly NFL winners', body:'Call every NFL game each week. **Most correct wins the week**, and a season-long leaderboard crowns an overall champ. Low effort, high trash-talk.' },
     { name:'Manager Duels', need:'needs nothing but you two', body:'Call anyone out for a **one-week head-to-head side bet** — bragging rights or a wager you set (loser buys wings, wears a jersey, whatever). The app tracks open challenges and records who won. Runs entirely inside the league, no outside data needed.' },
   ]},
@@ -1027,13 +1037,17 @@ const SIDEGAMES = [
 ];
 async function rSideGames(m){
   if(!me){ m.innerHTML=authBox(); return; }
+  if(TARGET==='survivor') return rSurvivor(m);
   const needPill = n => n.includes('nothing')?'<span class="pill green">plays today</span>'
     : n.includes('NFL winners')?'<span class="pill blue">'+esc(n)+'</span>'
     : n.includes('fantasy')?'<span class="pill gold">'+esc(n)+'</span>'
     : '<span class="pill">'+esc(n)+'</span>';
   const html=[`<h2>Side Games</h2>
+    <a class="card" href="#sidegames/survivor" style="display:block;border-color:rgba(201,133,0,.5);color:inherit">
+      <h3>🏈 Survivor Pool <span class="pill green">LIVE · open to join</span></h3>
+      <div class="body-md">$20 buy-in, voluntary, <b>winner takes all</b>. Pick one NFL team to win each week — never the same team twice. Lose once, you’re out. Join or withdraw until the season kicks off. <b>Tap in →</b></div></a>
     <div class="card"><h3>The league within the league</h3>
-    <div class="body-md">Contests that run alongside the main season so there’s always something to play for — even when your fantasy team is out of it by Week 8. Below is the menu I’ve drafted; nothing’s live yet. ${me.is_commissioner?'<b>Tell me which ones you want and I’ll build them</b> — simplest to launch first are the Survivor Pool or Manager Duels, both of which can run right now.':'The commissioner picks which of these we run.'}</div></div>`];
+    <div class="body-md">Contests that run alongside the main season so there’s always something to play for — even when your fantasy team is out of it by Week 8. Survivor is live above; the rest is the menu. ${me.is_commissioner?'<b>Tell me which ones you want next and I’ll build them.</b>':'The commissioner picks which of these we run.'}</div></div>`];
   for(const grp of SIDEGAMES){
     html.push(`<h2 style="margin-top:26px">${esc(grp.tier)}</h2>`);
     html.push(`<div class="meta" style="margin:-4px 2px 10px">${esc(grp.note)}</div>`);
@@ -1045,6 +1059,121 @@ async function rSideGames(m){
   html.push(`<div class="card" style="border-color:rgba(201,133,0,.4)"><div class="body-md" style="margin-top:0">
     <b>How they’ll work:</b> most side games have their own small buy-in, tracked separately from the main pot — you send Venmo requests the same way. Scoring is entered by you each week to start (a two-tap “who won” grid), and flips to automatic when the Yahoo feed lands. Some games (like Manager Duels) any member can start; others you run for the whole league.</div></div>`);
   m.innerHTML = html.join('');
+}
+
+// ---------- SURVIVOR POOL (#sidegames/survivor) ----------
+let SVWEEK=null;
+const tLogo = ab => `https://a.espncdn.com/i/teamlogos/nfl/500/${(ab||'').toLowerCase()}.png`;
+const svTime = k => { const d=new Date(k); return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
+async function rSurvivor(m){
+  const {data:pool} = await SB.from('ward_survivor_pools').select('*').eq('season',2026).single();
+  if(!pool){ m.innerHTML='<div class="err">No survivor pool this season.</div>'; return; }
+  const {data:st} = await SB.rpc('ward_survivor_standings',{pid:pool.id});
+  if(!st){ m.innerHTML='<div class="err">Standings unavailable — try a refresh.</div>'; return; }
+  const wk = SVWEEK || st.current_week || 1;
+  const [{data:games},{data:allpicks}] = await Promise.all([
+    SB.from('ward_nfl_games').select('*').eq('season',2026).eq('week',wk).order('kickoff'),
+    SB.from('ward_survivor_picks').select('*').eq('pool_id',pool.id),
+  ]);
+  const mine=(allpicks||[]).filter(p=>p.email===me.email);
+  const myEntry=(st.entries||[]).find(e=>e.email===me.email);
+  const myPickWk=mine.find(p=>p.week===wk);
+  const used=new Set(mine.filter(p=>p.week!==wk).map(p=>p.team));
+  const preLock=new Date(pool.lock_at)>new Date();
+  const iAlive=!!(myEntry&&myEntry.alive);
+  const html=[];
+  html.push(`<button class="backbtn" onclick="TARGET=null;go('sidegames')">← Side Games</button>`);
+  html.push(`<div class="card"><h3>🏈 Survivor Pool
+      <button class="likebtn" style="float:right" data-st="Survivor Pool — $${pool.buy_in} in, winner takes all. Join up." onclick="shareLink(this,'sidegames/survivor')" title="Share link">🔗</button></h3>
+    <div class="meta">$${pool.buy_in} buy-in · winner takes all · <b style="color:var(--goldbright)">pot $${st.pot}</b> · ${st.total} in${preLock?'':` · ${st.alive} alive`}</div>
+    ${st.complete&&st.total?`<div class="body-md">🏆 <b>${(st.winners||[]).map(esc).join(' & ')||'—'}</b> ${(st.winners||[]).length>1?'split the pot':'takes it all'}.</div>`:''}
+  </div>`);
+  if(preLock){
+    html.push(`<div class="card"${myEntry?'':' style="border-color:rgba(201,133,0,.5)"'}>
+      ${myEntry
+        ? `<h3>You're in ✅</h3><div class="meta">Locked in when the season kicks off — until then you can still back out. Opener: ${svTime(pool.lock_at)}.</div>
+           <div style="margin-top:10px"><button class="btn sm ghost" onclick="svWithdraw(${pool.id})">Withdraw</button></div>`
+        : `<h3>Join the pool</h3><div class="meta">Voluntary. $${pool.buy_in} on the line, winner takes the pot. Join or back out freely until kickoff of the opener — ${svTime(pool.lock_at)}. You'll agree to the terms first.</div>
+           <div style="margin-top:10px"><button class="btn gold" onclick="svJoinModal(${pool.id})">Join — $${pool.buy_in}</button></div>`}
+      ${st.total?`<div class="chips">in the pool: ${(st.entries||[]).map(e=>`<span class="c">${esc(e.name)}</span>`).join('')}</div>`:''}
+    </div>`);
+  } else if(!myEntry){
+    html.push(`<div class="card"><div class="meta">Entries locked at kickoff — you're spectating this one. ${st.alive} of ${st.total} still standing.</div></div>`);
+  } else if(!iAlive){
+    html.push(`<div class="card" style="border-color:rgba(230,103,103,.5)"><h3>☠️ Out — Week ${myEntry.out_week}</h3><div class="meta">${esc(myEntry.reason||'')}. Stick around and haunt the living.</div></div>`);
+  } else if(!st.complete){
+    html.push(`<div class="card" style="border-color:rgba(12,163,12,.4)"><h3>🟢 You're alive</h3>
+      <div class="meta">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}${used.size?` · burned: ${[...used].sort().map(esc).join(', ')}`:''}</div></div>`);
+  }
+  html.push(`<h2 style="margin-top:24px">Week ${wk}
+    <span class="note">${wk>1?`<button class="likebtn" onclick="SVWEEK=${wk-1};render()">‹</button>`:''}
+    ${wk<18?`<button class="likebtn" onclick="SVWEEK=${wk+1};render()">›</button>`:''}</span></h2>`);
+  const canPick = myEntry && iAlive && !st.complete;
+  let day='';
+  for(const g of (games||[])){
+    const d=new Date(g.kickoff).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    if(d!==day){ day=d; html.push(`<div class="meta" style="margin:12px 2px 2px">${d}</div>`); }
+    const started=new Date(g.kickoff)<=new Date();
+    const fin=(g.status||'').startsWith('STATUS_FINAL');
+    const live=started&&!fin&&g.status!=='STATUS_CANCELED';
+    const side=(ab,logo,score)=>{
+      const isMine=!!(myPickWk&&myPickWk.team===ab);
+      const isUsed=used.has(ab);
+      const pickable=canPick&&!started&&!isUsed;
+      const won=fin&&g.winner===ab;
+      return `<button class="svteam${isMine?' mine':''}${isUsed?' used':''}${pickable?' pickable':''}"${pickable?` onclick="svPick(${pool.id},${wk},'${ab}')"`:''}${isUsed?' title="already used — one ride per team"':''}>
+        <img src="${logo||tLogo(ab)}" alt="" loading="lazy"><span>${esc(ab)}${won?' ✓':''}${isMine?' 🎯':''}</span>${score!=null&&started?`<b class="svscore">${score}</b>`:''}</button>`;
+    };
+    html.push(`<div class="svgame">
+      ${side(g.away,g.away_logo,g.away_score)}
+      <div class="svmid">${fin?'<b>FINAL</b>':live?'<b style="color:var(--goldbright)">LIVE</b>':g.status==='STATUS_CANCELED'?'CANCELED':new Date(g.kickoff).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+      ${side(g.home,g.home_logo,g.home_score)}
+    </div>`);
+  }
+  if(!preLock && st.total){
+    html.push('<h2 style="margin-top:26px">The Board</h2>');
+    for(const e of (st.entries||[])){
+      const hist=(allpicks||[]).filter(p=>p.email===e.email).sort((a,b)=>a.week-b.week);
+      html.push(`<div class="card" style="padding:12px 16px"><b>${esc(e.name)}</b> ${e.alive?'<span class="pill green">alive</span>':`<span class="pill red">out · wk ${e.out_week}</span>`}
+        ${e.reason?`<span class="meta" style="margin-left:6px">${esc(e.reason)}</span>`:''}
+        ${hist.length?`<div style="margin-top:6px">${hist.map(p=>`<img class="tlogo" src="${tLogo(p.team)}" title="Wk ${p.week}: ${esc(p.team)}" loading="lazy">`).join('')}</div>`:''}
+      </div>`);
+    }
+    html.push(`<div class="meta" style="margin:6px 2px">Picks stay hidden until their game kicks off — then the whole league sees them.</div>`);
+  }
+  html.push(`<h2 style="margin-top:26px">The Terms</h2><div class="card"><div class="body-md">${md(st.terms||'')}</div></div>`);
+  m.innerHTML=html.join('');
+}
+async function svJoinModal(pid){
+  const {data:pool}=await SB.from('ward_survivor_pools').select('*').eq('id',pid).single();
+  if(!pool) return;
+  $('modal').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeLogin()"><div class="inner"><div class="modal-card">
+    <h3>Survivor Pool — the terms</h3>
+    <div class="meta" style="margin-top:4px">Joining means you agree to all of this:</div>
+    <div class="body-md" style="max-height:50vh;overflow-y:auto;margin-top:8px">${md(pool.terms_md)}</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn gold" onclick="svJoin(${pid})">I agree — I'm in ($${pool.buy_in})</button>
+      <button class="btn ghost" onclick="closeLogin()">Not yet</button>
+    </div>
+  </div></div></div>`;
+}
+async function svJoin(pid){
+  const {error}=await SB.from('ward_survivor_entries').insert({pool_id:pid,email:me.email});
+  if(error){ toast(error.message,3500); return; }
+  closeLogin(); toast("You're in 🏈");
+  render();
+}
+async function svWithdraw(pid){
+  if(!await wardConfirm({title:'Withdraw from the pool?', body:'No harm done — you can rejoin any time before the season kicks off.', ok:'Withdraw', okClass:'danger'})) return;
+  const {error}=await SB.from('ward_survivor_entries').delete().match({pool_id:pid,email:me.email});
+  if(error) toast(error.message,3500); else toast('Withdrawn.');
+  render();
+}
+async function svPick(pid,wk,team){
+  const {error}=await SB.from('ward_survivor_picks').upsert({pool_id:pid,email:me.email,week:wk,team});
+  if(error){ toast(error.message,3500); return; }
+  toast(`Week ${wk}: ${team} 🎯`);
+  render();
 }
 
 // ---------- RULEBOOK: THE TEN COMMANDMENTS ----------
