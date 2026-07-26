@@ -47,8 +47,11 @@
   .svteam:last-child{flex-direction:row-reverse;text-align:right}
   .svteam img{width:32px;height:32px;flex:none}
   .svteam.pickable{cursor:pointer}
-  .svteam.pickable:hover{border-color:var(--ring);background:var(--surface)}
-  .svteam.mine{border-color:var(--purple);background:rgba(122,79,214,.16)}
+  /* hover ONLY on devices that truly hover — iOS keeps a tapped element in :hover
+     ("sticky hover"), which used to mask the pick highlight until you tapped elsewhere */
+  @media(hover:hover){.svteam.pickable:not(.mine):hover{border-color:var(--ring);background:var(--surface)}}
+  .svteam.pickable:active{background:var(--surface)}
+  .svteam.mine{border-color:var(--purplebright);background:rgba(122,79,214,.28);box-shadow:0 0 0 1.5px var(--purplebright),0 0 14px rgba(177,138,255,.3)}
   .svteam.used{opacity:.35}
   .svscore{font-size:15px;font-variant-numeric:tabular-nums;margin:0 4px}
   .svmid{font-size:11px;color:var(--muted);text-align:center;min-width:74px;flex:none;line-height:1.5}
@@ -71,6 +74,13 @@
   .svc.fatal{box-shadow:0 0 0 2px rgba(230,103,103,.4)}
   .svc.pend{background:var(--surface);border-color:var(--ring)}
   .svc.priv{background:var(--surface);border:1px dashed rgba(122,79,214,.65)}
+  /* the pick-status bar — pinned to the viewport, always visible on the survivor page */
+  .svbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:70;display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border-radius:999px;font-size:13.5px;font-weight:800;font-family:inherit;border:1px solid;box-shadow:0 10px 28px rgba(0,0,0,.6);cursor:pointer;max-width:calc(100vw - 28px);white-space:nowrap}
+  .svbar img{width:22px;height:22px;flex:none}
+  .svbar.warn{background:#42120f;border-color:var(--bad);color:#ffc9c9;animation:svpulse 1.6s ease-in-out infinite}
+  .svbar.ok{background:#241743;border-color:var(--purple);color:var(--purplebright)}
+  .svbar.doom{background:#2a2a28;border-color:var(--grid);color:var(--muted);cursor:default}
+  @keyframes svpulse{0%,100%{box-shadow:0 10px 28px rgba(0,0,0,.6),0 0 0 0 rgba(230,103,103,.5)}50%{box-shadow:0 10px 28px rgba(0,0,0,.6),0 0 0 9px rgba(230,103,103,0)}}
   .tour-card{max-width:440px;margin:5vh auto 0;text-align:center;background:var(--surface);border:1px solid var(--ring);border-radius:18px;padding:30px 24px}
   .tour-ico{font-size:44px}
   .tour-card h1{font-size:22px;margin:10px 0 4px}
@@ -1137,7 +1147,7 @@ async function rSurvivor(m){
     html.push(`<div class="card" style="border-color:rgba(230,103,103,.5)"><h3>☠️ Out — Week ${myEntry.out_week}</h3><div class="meta">${esc(myEntry.reason||'')}. Stick around and haunt the living.</div></div>`);
   } else if(!st.complete){
     html.push(`<div class="card" style="border-color:rgba(12,163,12,.4)"><h3>🟢 You're alive</h3>
-      <div class="meta">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}${used.size?` · burned: ${[...used].sort().map(esc).join(', ')}`:''}</div></div>`);
+      <div class="meta"><span id="svmypick">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}</span>${used.size?` · burned: ${[...used].sort().map(esc).join(', ')}`:''}</div></div>`);
   }
   html.push(`<div class="svwknav">
     ${wk>1?`<button class="btn sm" onclick="SVWEEK=${wk-1};render()">‹ Week ${wk-1}</button>`:'<span style="min-width:96px"></span>'}
@@ -1200,7 +1210,29 @@ async function rSurvivor(m){
     html.push(`<div class="meta" style="margin:8px 2px">🟩 survived · 🟥 the kill shot · 🔒 locked in, hidden until kickoff · dashed = your own private pick. Everyone's picks go public at kickoff.</div>`);
   }
   html.push(`<h2 style="margin-top:26px">The Terms</h2><div class="card"><div class="body-md">${md(st.terms||'')}</div></div>`);
+  // the pick-status bar: pinned to the viewport, reflects the ACTIVE week no matter
+  // where you're scrolled or which week you're browsing. Tap it to jump to that week.
+  if(myEntry && iAlive && !st.complete){
+    const activeWk=st.current_week||1;
+    const myActive=mine.find(p=>p.week===activeWk);
+    const aGames=(allgames||[]).filter(g=>g.week===activeWk);
+    const now=new Date();
+    if(myActive){
+      const g=aGames.find(x=>x.home===myActive.team||x.away===myActive.team);
+      const locked=!!(g&&new Date(g.kickoff)<=now);
+      html.push(`<button id="svbar" class="svbar ok" data-wk="${activeWk}" onclick="svGoActive(${activeWk})"><img src="${tLogo(myActive.team)}" alt="">Week ${activeWk}: ${esc(myActive.team)} ${locked?'· locked in 🔒':`🎯 in · changeable until ${g?new Date(g.kickoff).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}):'kickoff'}`}</button>`);
+    } else if(aGames.some(g=>new Date(g.kickoff)>now&&g.status!=='STATUS_CANCELED')){
+      html.push(`<button id="svbar" class="svbar warn" data-wk="${activeWk}" onclick="svGoActive(${activeWk})">⚠️ No Week ${activeWk} pick yet — tap a team</button>`);
+    } else {
+      html.push(`<span id="svbar" class="svbar doom" data-wk="${activeWk}">Week ${activeWk}: no pick in — every game has kicked off</span>`);
+    }
+    html.push('<div style="height:62px"></div>');
+  }
   m.innerHTML=html.join('');
+}
+async function svGoActive(wk){
+  SVWEEK=wk; await render();
+  const el=document.querySelector('.svwknav'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function svJoinModal(pid){
   const {data:pool}=await SB.from('ward_survivor_pools').select('*').eq('id',pid).single();
@@ -1228,13 +1260,21 @@ async function svWithdraw(pid){
   render();
 }
 async function svPick(pid,wk,team){
-  // optimistic: highlight instantly, before the network round-trip
+  // optimistic: highlight instantly, before the network round-trip — team ring,
+  // the status line in the alive card, AND the pinned bar all flip at once
   document.querySelectorAll('#main .svteam').forEach(b=>{
     const on = b.dataset.t===team;
     b.classList.toggle('mine', on);
     const sp=b.querySelector('span');
     if(sp) sp.textContent = sp.textContent.replace(' 🎯','') + (on?' 🎯':'');
   });
+  const stat=document.getElementById('svmypick');
+  if(stat) stat.innerHTML=`Week ${wk}: riding <b>${esc(team)}</b> — changeable until that kickoff.`;
+  const bar=document.getElementById('svbar');
+  if(bar && +bar.dataset.wk===wk){
+    bar.className='svbar ok';
+    bar.innerHTML=`<img src="${tLogo(team)}" alt="">Week ${wk}: ${esc(team)} 🎯 in`;
+  }
   const {error}=await SB.from('ward_survivor_picks').upsert({pool_id:pid,email:me.email,week:wk,team});
   if(error){ toast(error.message,3500); render(); return; }   // revert optimistic state on failure
   toast(`Week ${wk}: ${team} 🎯`);
