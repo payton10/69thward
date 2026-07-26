@@ -53,6 +53,7 @@
   .svteam.pickable:active{background:var(--surface)}
   .svteam.mine{border-color:var(--purplebright);background:rgba(122,79,214,.28);box-shadow:0 0 0 1.5px var(--purplebright),0 0 14px rgba(177,138,255,.3)}
   .svteam.used{opacity:.35}
+  .svheld{display:inline-block;font-size:9px;font-weight:800;color:var(--purplebright);border:1px solid rgba(122,79,214,.55);border-radius:5px;padding:0 4px;margin-left:4px;vertical-align:1px;letter-spacing:.03em}
   .svscore{font-size:15px;font-variant-numeric:tabular-nums;margin:0 4px}
   .svmid{font-size:11px;color:var(--muted);text-align:center;min-width:74px;flex:none;line-height:1.5}
   .svodds{display:block;font-size:10px;color:var(--purplebright);font-weight:700;white-space:nowrap}
@@ -1122,7 +1123,14 @@ async function rSurvivor(m){
   const mine=(allpicks||[]).filter(p=>p.email===me.email);
   const myEntry=(st.entries||[]).find(e=>e.email===me.email);
   const myPickWk=mine.find(p=>p.week===wk);
-  const used=new Set(mine.filter(p=>p.week!==wk).map(p=>p.team));
+  // teams picked in OTHER weeks: a LOCKED ride (its game kicked off) truly burns the
+  // team; a still-changeable pick is just penciled in — movable here with a confirm
+  const now0=new Date();
+  const usedLocked=new Set(), heldBy={};
+  for(const p of mine){ if(p.week===wk) continue;
+    const pg=(allgames||[]).find(g=>g.week===p.week&&(g.home===p.team||g.away===p.team));
+    if(pg&&new Date(pg.kickoff)<=now0) usedLocked.add(p.team); else heldBy[p.team]=p.week;
+  }
   const preLock=new Date(pool.lock_at)>new Date();
   const iAlive=!!(myEntry&&myEntry.alive);
   const html=[];
@@ -1147,7 +1155,7 @@ async function rSurvivor(m){
     html.push(`<div class="card" style="border-color:rgba(230,103,103,.5)"><h3>☠️ Out — Week ${myEntry.out_week}</h3><div class="meta">${esc(myEntry.reason||'')}. Stick around and haunt the living.</div></div>`);
   } else if(!st.complete){
     html.push(`<div class="card" style="border-color:rgba(12,163,12,.4)"><h3>🟢 You're alive</h3>
-      <div class="meta"><span id="svmypick">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}</span>${used.size?` · burned: ${[...used].sort().map(esc).join(', ')}`:''}</div></div>`);
+      <div class="meta"><span id="svmypick">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}</span>${usedLocked.size?` · burned: ${[...usedLocked].sort().map(esc).join(', ')}`:''}</div></div>`);
   }
   html.push(`<div class="svwknav">
     ${wk>1?`<button class="btn sm" onclick="SVWEEK=${wk-1};render()">‹ Week ${wk-1}</button>`:'<span style="min-width:96px"></span>'}
@@ -1164,11 +1172,12 @@ async function rSurvivor(m){
     const live=started&&!fin&&g.status!=='STATUS_CANCELED';
     const side=(ab,logo,score)=>{
       const isMine=!!(myPickWk&&myPickWk.team===ab);
-      const isUsed=used.has(ab);
+      const isUsed=usedLocked.has(ab);
+      const heldWk=heldBy[ab];
       const pickable=canPick&&!started&&!isUsed;
       const won=fin&&g.winner===ab;
-      return `<button class="svteam${isMine?' mine':''}${isUsed?' used':''}${pickable?' pickable':''}" data-t="${esc(ab)}"${pickable?` onclick="svPick(${pool.id},${wk},'${ab}')"`:''}${isUsed?' title="already used — one ride per team"':''}>
-        <img src="${tLogo(ab)}" alt="" loading="lazy"><span>${esc(ab)}${won?' ✓':''}${isMine?' 🎯':''}</span>${score!=null&&started?`<b class="svscore">${score}</b>`:''}</button>`;
+      return `<button class="svteam${isMine?' mine':''}${isUsed?' used':''}${pickable?' pickable':''}" data-t="${esc(ab)}"${pickable?` onclick="svPick(${pool.id},${wk},'${ab}'${heldWk?','+heldWk:''})"`:''}${isUsed?' title="already used — one ride per team"':heldWk?` title="penciled in for Week ${heldWk} — tap to move it here"`:''}>
+        <img src="${tLogo(ab)}" alt="" loading="lazy"><span>${esc(ab)}${won?' ✓':''}${isMine?' 🎯':''}${heldWk&&!isMine?` <span class='svheld'>Wk ${heldWk}</span>`:''}</span>${score!=null&&started?`<b class="svscore">${score}</b>`:''}</button>`;
     };
     html.push(`<div class="svgame">
       ${side(g.away,g.away_logo,g.away_score)}
@@ -1259,16 +1268,22 @@ async function svWithdraw(pid){
   if(error) toast(error.message,3500); else toast('Withdrawn.');
   render();
 }
-async function svPick(pid,wk,team){
+async function svPick(pid,wk,team,heldWk){
   // Asymmetric friction: FIRST pick is one tap (nothing to lose, the bar is nagging you),
-  // but CHANGING a pick confirms first — that's the only case a stray tap can cost you.
+  // but CHANGING a pick — or pulling a team off another week where it's penciled in —
+  // confirms first. One modal covers both stakes when they combine.
   const curEl=document.querySelector('#main .svteam.mine');
   const cur=curEl?curEl.dataset.t:null;
   if(cur===team){ toast(`Already riding ${team} 🎯`); return; }
-  if(cur && !await wardConfirm({
-    title:`Switch to ${team}?`,
-    body:`<img class="tlogo" src="${tLogo(cur)}" alt="">${esc(cur)} → <img class="tlogo" src="${tLogo(team)}" alt=""><b>${esc(team)}</b> for Week ${wk}. You can keep changing until kickoff.`,
-    ok:`Switch to ${team}`, okClass:'purple'})) return;
+  if(cur||heldWk){
+    let body = cur
+      ? `<img class="tlogo" src="${tLogo(cur)}" alt="">${esc(cur)} → <img class="tlogo" src="${tLogo(team)}" alt=""><b>${esc(team)}</b> for Week ${wk}. You can keep changing until kickoff.`
+      : `<img class="tlogo" src="${tLogo(team)}" alt=""><b>${esc(team)}</b> for Week ${wk}.`;
+    if(heldWk) body += `<br><br>⚠️ ${esc(team)} is penciled in for <b>Week ${heldWk}</b>. Confirming moves it here — Week ${heldWk} goes back to <b>no pick</b>, so grab it a new team before then.`;
+    if(!await wardConfirm({
+      title: heldWk&&!cur ? `Move ${team} to Week ${wk}?` : `Switch to ${team}?`,
+      body, ok: heldWk&&!cur ? `Move ${team} here` : `Switch to ${team}`, okClass:'purple'})) return;
+  }
   // optimistic: highlight instantly, before the network round-trip — team ring,
   // the status line in the alive card, AND the pinned bar all flip at once
   document.querySelectorAll('#main .svteam').forEach(b=>{
@@ -1283,6 +1298,10 @@ async function svPick(pid,wk,team){
   if(bar && +bar.dataset.wk===wk){
     bar.className='svbar ok';
     bar.innerHTML=`<img src="${tLogo(team)}" alt="">Week ${wk}: ${esc(team)} 🎯 in`;
+  }
+  if(heldWk){  // free the team from the week holding it, THEN take it here
+    const {error:de}=await SB.from('ward_survivor_picks').delete().match({pool_id:pid,email:me.email,week:heldWk});
+    if(de){ toast(de.message,3500); render(); return; }
   }
   const {error}=await SB.from('ward_survivor_picks').upsert({pool_id:pid,email:me.email,week:wk,team});
   if(error){ toast(error.message,3500); render(); return; }   // revert optimistic state on failure
