@@ -102,7 +102,7 @@
     <h2>How it works</h2>
     <div class="card rules">
       <ul>
-        <li><b>Every night at 6:00 PM</b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
+        <li><b>Every night at <span class="droptime">6:00 PM</span></b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
         <li><b>Lock Week:</b> each night, the lowest total gets locked into the worst open draft slot. Pick 12 goes first. Then 11. Then you.</li>
         <li><b>The Finale:</b> the last two standing roll head-to-head for the #1 pick — two days before the draft.</li>
         <li><b>Events</b> hit twice a week. The can of surströmming opens for someone. The beer mile giveth.</li>
@@ -178,12 +178,15 @@
 })();
 </script>
 <script>
-const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jackson", "Kirk", "Bryson", "Luke", "Cam"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-25", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-11", "lock_start": "2026-08-21", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "surge"], ["2026-08-12", "surge"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "lock"], ["2026-08-22", "lock"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-25T19:56:46.043548-06:00"};
+const DATA = {"cfg": {"year": 2026, "league": "69th Ward", "title": "Draft Derby", "managers": ["Payton", "Collin", "Jacob", "Jaret", "Marshall", "Haiden", "Duke", "Jackson", "Kirk", "Bryson", "Luke", "Cam"], "launch_date": "2026-07-27", "draft_date": "2026-09-02", "draft_time_label": "Sep 2, 6:30 PM", "drop_hour_local": 18, "seed_hash": "705b8f40307390325f9c53381023bb98addbe96e93fbbc8183b3e6c6cbd462af"}, "state": "pre", "asOf": "2026-07-25", "marks": {"launch": "2026-07-27", "surge_start": "2026-08-11", "lock_start": "2026-08-21", "finale": "2026-08-31", "draft": "2026-09-02"}, "phases": [["2026-07-27", "warmup"], ["2026-07-28", "warmup"], ["2026-07-29", "warmup"], ["2026-07-30", "warmup"], ["2026-07-31", "warmup"], ["2026-08-01", "warmup"], ["2026-08-02", "warmup"], ["2026-08-03", "warmup"], ["2026-08-04", "warmup"], ["2026-08-05", "warmup"], ["2026-08-06", "warmup"], ["2026-08-07", "warmup"], ["2026-08-08", "warmup"], ["2026-08-09", "warmup"], ["2026-08-10", "warmup"], ["2026-08-11", "surge"], ["2026-08-12", "surge"], ["2026-08-13", "surge"], ["2026-08-14", "surge"], ["2026-08-15", "surge"], ["2026-08-16", "surge"], ["2026-08-17", "surge"], ["2026-08-18", "surge"], ["2026-08-19", "surge"], ["2026-08-20", "surge"], ["2026-08-21", "lock"], ["2026-08-22", "lock"], ["2026-08-23", "lock"], ["2026-08-24", "lock"], ["2026-08-25", "lock"], ["2026-08-26", "lock"], ["2026-08-27", "lock"], ["2026-08-28", "lock"], ["2026-08-29", "lock"], ["2026-08-30", "lock"], ["2026-08-31", "finale"]], "drops": [], "allTotals": {}, "locked": {}, "dropCount": 0, "fullHistory": [], "commentary": {}, "revealedSeed": null, "builtAt": "2026-07-25T20:06:49.929817-06:00"};
 const CFG = DATA.cfg, MANAGERS = CFG.managers;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const fmtD = iso => new Date(iso + "T12:00:00").toLocaleDateString('en-US',{month:'short',day:'numeric'});
-const dropAt = iso => new Date(iso + "T18:00:00-06:00");  // 6 PM MDT
+const dropAt = iso => new Date(iso + "T18:00:00-06:00");  // 6 PM MDT (absolute instant)
+// every time on this page renders in the VIEWER's zone — no hardcoded "MT" labels
+const DROPLBL = dropAt("2026-08-01").toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+document.querySelectorAll('.droptime').forEach(e => { e.textContent = DROPLBL; });
 
 // ---------- visible drops: hide tonight's drop until 6:00 PM sharp ----------
 const now = new Date();
@@ -216,9 +219,9 @@ function chip(big, lbl, gold, id){ return `<div class="chip${gold?' gold':''}"><
 (function renderChips(){
   const draftT = new Date(DATA.marks.draft + "T18:30:00-06:00");
   const days = Math.max(0, Math.ceil((draftT - now) / 864e5));
-  let html = chip(days + ' days', 'Until the draft · ' + esc(CFG.draft_time_label), true);
+  let html = chip(days + ' days', 'Until the draft · ' + draftT.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + draftT.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'}), true);
   const nd = nextDropTime();
-  if (state !== 'final' && nd) html += chip('—', (state==='pre'?'Until the first drop':'Until tonight’s drop') + ' · 6:00 PM', false, 'cd');
+  if (state !== 'final' && nd) html += chip('—', (state==='pre'?'Until the first drop':'Until tonight’s drop') + ' · ' + DROPLBL, false, 'cd');
   if (state === 'live'){
     const alive = MANAGERS.filter(m => !(m in visLocked));
     const todayPhase = (DATA.phases.find(([dstr]) => dropAt(dstr) > now) || [])[1];

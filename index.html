@@ -181,7 +181,10 @@ const esc = WardShell.esc;
 const fmtD = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 const dtVal = d => { const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 const snapClose = days => { const d=new Date(); d.setDate(d.getDate()+days); d.setHours(21,0,0,0); return d; };  // votes close at 9:00 PM
-const fmtClose = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+const fmtClose = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'});
+// every fixed league moment is stored as an absolute instant and rendered in the
+// VIEWER's zone — nobody sees a hardcoded "MT" they have to convert in their head
+const DROP_HOUR = new Date('2026-08-01T18:00:00-06:00').toLocaleTimeString('en-US',{hour:'numeric'});
 const md = s => esc(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*([^*\n]+)\*/g,'<i>$1</i>')
   .split('\n').map(l=>{ const m=l.match(/^\s*- (.*)$/); return m?`<div class="li">${m[1]}</div>`:(l.trim()?`<p>${l}</p>`:''); }).join('');
 
@@ -416,7 +419,7 @@ let TOURSTEP=0;
 const TOUR=[
   {i:'⛪',t:'Welcome to the 69th Ward',b:`This is the league's home — <b>the rules, the votes, the money, and the history</b>, all in one place.<br><br>You're signed in, and you'll stay signed in on this device. <b>Tip:</b> hit your browser's share menu and <b>Add to Home Screen</b> — it works like an app.`},
   {i:'🏠',t:'Home',b:`Right now, Home shows the <b>draft countdown</b> and Champions Row. Once the season starts it becomes <b>standings and who owes what</b>.`},
-  {i:'🎲',t:'The Draft Derby',b:`Draft order isn't pulled from a hat — it plays out <b>live, every night at 6 PM</b>. Everyone collects random points; down the stretch the lowest total locks into the worst open pick, night by night, until a head-to-head finale for pick #1 two days before the draft.<br><br>It's provably fair — the Derby page can re-verify every roll in your own browser.`},
+  {i:'🎲',t:'The Draft Derby',b:`Draft order isn't pulled from a hat — it plays out <b>live, every night at ${DROP_HOUR}</b>. Everyone collects random points; down the stretch the lowest total locks into the worst open pick, night by night, until a head-to-head finale for pick #1 two days before the draft.<br><br>It's provably fair — the Derby page can re-verify every roll in your own browser.`},
   {i:'🙏',t:'Proposals',b:`Got something to hash out? <b>Open a topic</b> — punishments, rule tweaks, whatever — and stack <b>proposals</b> inside it, side by side. <b>Bless</b> the ones you'd support, as many as you like; <b>2+ blessings</b> makes a proposal vote-eligible. Each proposal has its own discussion.<br><br>Only the commissioner sends one to an official vote.`},
   {i:'🗳️',t:'Votes',b:`Rule changes are decided by everyone. You'll <b>Sustain 🙌 or Oppose 👎</b> — ballots are secret until the vote closes; who has voted is public. Some votes are <b>ranked-choice</b>: tap the options in your order of preference.<br><br><b>Heads up:</b> when a vote is open, the app takes you straight to it when you arrive, and the Vote tab glows gold until your ballot is in. Democracy first.`},
   {i:'📜',t:'Commandments & Church History',b:`The rulebook lives under <b>Commandments</b> — ten of them, everything from scoring to money in plain words. <b>Church History</b> keeps every season: champions, standings, and 🍆 holders.<br><br>That's the tour. Welcome aboard.`},
@@ -462,7 +465,7 @@ async function rHome(m){
   if(preDraft){
     const days = Math.ceil((DRAFT-now)/864e5);
     hero = `<div class="hero"><div class="big">${days} days until the draft</div>
-      <div class="sub">Wed Sep 2 · 6:30 PM MT · order decided by the Derby</div>
+      <div class="sub">${DRAFT.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} · ${DRAFT.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'})} · order decided by the Derby</div>
       <div style="margin-top:14px"><a class="btn gold" href="derby/">🎲 The Draft Derby is ${now<new Date('2026-07-27T18:00:00-06:00')?'coming Mon Jul 27':'LIVE'} →</a></div></div>`;
   } else {
     hero = `<div class="hero"><div class="big">2026 Season</div><div class="sub">Standings sync coming with Week 1 — see Yahoo for live scores.</div></div>`;
@@ -1108,7 +1111,7 @@ async function rSideGames(m){
 // ---------- SURVIVOR POOL (#sidegames/survivor) ----------
 let SVWEEK=null;
 const tLogo = ab => `https://a.espncdn.com/i/teamlogos/nfl/500-dark/${(ab||'').toLowerCase()}.png`;  // dark-background logo set
-const svTime = k => { const d=new Date(k); return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
+const svTime = k => { const d=new Date(k); return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'}); };
 async function rSurvivor(m){
   const {data:pool} = await SB.from('ward_survivor_pools').select('*').eq('season',2026).single();
   if(!pool){ m.innerHTML='<div class="err">No survivor pool this season.</div>'; return; }
@@ -1229,7 +1232,7 @@ async function rSurvivor(m){
     if(myActive){
       const g=aGames.find(x=>x.home===myActive.team||x.away===myActive.team);
       const locked=!!(g&&new Date(g.kickoff)<=now);
-      html.push(`<button id="svbar" class="svbar ok" data-wk="${activeWk}" onclick="svGoActive(${activeWk})"><img src="${tLogo(myActive.team)}" alt="">Week ${activeWk}: ${esc(myActive.team)} ${locked?'· locked in 🔒':`🎯 in · changeable until ${g?new Date(g.kickoff).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}):'kickoff'}`}</button>`);
+      html.push(`<button id="svbar" class="svbar ok" data-wk="${activeWk}" onclick="svGoActive(${activeWk})"><img src="${tLogo(myActive.team)}" alt="">Week ${activeWk}: ${esc(myActive.team)} ${locked?'· locked in 🔒':`🎯 in · changeable until ${g?new Date(g.kickoff).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit',timeZoneName:'short'}):'kickoff'}`}</button>`);
     } else if(aGames.some(g=>new Date(g.kickoff)>now&&g.status!=='STATUS_CANCELED')){
       html.push(`<button id="svbar" class="svbar warn" data-wk="${activeWk}" onclick="svGoActive(${activeWk})">⚠️ No Week ${activeWk} pick yet — tap a team</button>`);
     } else {

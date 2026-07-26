@@ -102,7 +102,7 @@
     <h2>How it works</h2>
     <div class="card rules">
       <ul>
-        <li><b>Every night at 6:00 PM</b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
+        <li><b>Every night at <span class="droptime">6:00 PM</span></b>, everyone gets a random roll added to their total. Small rolls to start — they get bigger.</li>
         <li><b>Lock Week:</b> each night, the lowest total gets locked into the worst open draft slot. Pick 12 goes first. Then 11. Then you.</li>
         <li><b>The Finale:</b> the last two standing roll head-to-head for the #1 pick — two days before the draft.</li>
         <li><b>Events</b> hit twice a week. The can of surströmming opens for someone. The beer mile giveth.</li>
@@ -183,7 +183,10 @@ const CFG = DATA.cfg, MANAGERS = CFG.managers;
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const fmtD = iso => new Date(iso + "T12:00:00").toLocaleDateString('en-US',{month:'short',day:'numeric'});
-const dropAt = iso => new Date(iso + "T18:00:00-06:00");  // 6 PM MDT
+const dropAt = iso => new Date(iso + "T18:00:00-06:00");  // 6 PM MDT (absolute instant)
+// every time on this page renders in the VIEWER's zone — no hardcoded "MT" labels
+const DROPLBL = dropAt("2026-08-01").toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+document.querySelectorAll('.droptime').forEach(e => { e.textContent = DROPLBL; });
 
 // ---------- visible drops: hide tonight's drop until 6:00 PM sharp ----------
 const now = new Date();
@@ -216,9 +219,9 @@ function chip(big, lbl, gold, id){ return `<div class="chip${gold?' gold':''}"><
 (function renderChips(){
   const draftT = new Date(DATA.marks.draft + "T18:30:00-06:00");
   const days = Math.max(0, Math.ceil((draftT - now) / 864e5));
-  let html = chip(days + ' days', 'Until the draft · ' + esc(CFG.draft_time_label), true);
+  let html = chip(days + ' days', 'Until the draft · ' + draftT.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ', ' + draftT.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZoneName:'short'}), true);
   const nd = nextDropTime();
-  if (state !== 'final' && nd) html += chip('—', (state==='pre'?'Until the first drop':'Until tonight’s drop') + ' · 6:00 PM', false, 'cd');
+  if (state !== 'final' && nd) html += chip('—', (state==='pre'?'Until the first drop':'Until tonight’s drop') + ' · ' + DROPLBL, false, 'cd');
   if (state === 'live'){
     const alive = MANAGERS.filter(m => !(m in visLocked));
     const todayPhase = (DATA.phases.find(([dstr]) => dropAt(dstr) > now) || [])[1];
