@@ -1127,14 +1127,17 @@ async function rSurvivor(m){
     html.push(`<div class="card" style="border-color:rgba(230,103,103,.5)"><h3>☠️ Out — Week ${myEntry.out_week}</h3><div class="meta">${esc(myEntry.reason||'')}. Stick around and haunt the living.</div></div>`);
   } else if(!st.complete){
     html.push(`<div class="card" style="border-color:rgba(12,163,12,.4)"><h3>🟢 You're alive</h3>
-      <div class="meta"><span id="svmypick">${myPickWk?`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`:`No Week ${wk} pick yet — tap a team below before kickoff.`}</span>${usedLocked.size?` · burned: ${[...usedLocked].sort().map(esc).join(', ')}`:''}</div></div>`);
+      <div class="meta"><span id="svmypick">${myPickWk?(myLocked?`Week ${wk}: locked in on <b>${esc(myPickWk.team)}</b> 🔒 — that game has started, so this week is final.`:`Week ${wk}: riding <b>${esc(myPickWk.team)}</b> — changeable until that kickoff.`):`No Week ${wk} pick yet — tap a team below before kickoff.`}</span>${usedLocked.size?` · burned: ${[...usedLocked].sort().map(esc).join(', ')}`:''}</div></div>`);
   }
   html.push(`<div class="svwknav">
     ${wk>1?`<button class="btn sm" onclick="SVWEEK=${wk-1};render()">‹ Week ${wk-1}</button>`:'<span style="min-width:96px"></span>'}
     <b>WEEK ${wk}</b>
     ${wk<18?`<button class="btn sm" onclick="SVWEEK=${wk+1};render()">Week ${wk+1} ›</button>`:'<span style="min-width:96px"></span>'}
   </div>`);
-  const canPick = myEntry && iAlive && !st.complete;
+  // once your pick's game has kicked off, the WEEK is locked — no swapping onto a later game
+  const myGame=myPickWk&&(games||[]).find(g=>g.home===myPickWk.team||g.away===myPickWk.team);
+  const myLocked=!!(myGame&&new Date(myGame.kickoff)<=new Date());
+  const canPick = myEntry && iAlive && !st.complete && !myLocked;
   let day='';
   for(const g of (games||[])){
     const d=new Date(g.kickoff).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
