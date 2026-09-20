@@ -1095,6 +1095,9 @@ async function rSurvivor(m){
   const mine=(allpicks||[]).filter(p=>p.email===me.email);
   const myEntry=(st.entries||[]).find(e=>e.email===me.email);
   const myPickWk=mine.find(p=>p.week===wk);
+  // once your pick's game has kicked off, the WEEK is locked — no swapping onto a later game
+  const myGame=myPickWk&&(games||[]).find(g=>g.home===myPickWk.team||g.away===myPickWk.team);
+  const myLocked=!!(myGame&&new Date(myGame.kickoff)<=new Date());
   // teams picked in OTHER weeks: a LOCKED ride (its game kicked off) truly burns the
   // team; a still-changeable pick is just penciled in — movable here with a confirm
   const now0=new Date();
@@ -1134,9 +1137,6 @@ async function rSurvivor(m){
     <b>WEEK ${wk}</b>
     ${wk<18?`<button class="btn sm" onclick="SVWEEK=${wk+1};render()">Week ${wk+1} ›</button>`:'<span style="min-width:96px"></span>'}
   </div>`);
-  // once your pick's game has kicked off, the WEEK is locked — no swapping onto a later game
-  const myGame=myPickWk&&(games||[]).find(g=>g.home===myPickWk.team||g.away===myPickWk.team);
-  const myLocked=!!(myGame&&new Date(myGame.kickoff)<=new Date());
   const canPick = myEntry && iAlive && !st.complete && !myLocked;
   let day='';
   for(const g of (games||[])){
